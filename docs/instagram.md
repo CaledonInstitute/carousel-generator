@@ -10,7 +10,7 @@ Implementasi memakai **website dan D1 yang sudah ada**. Tidak perlu R2, Cloudfla
 2. Tambahkan akun profesional sebagai Instagram tester dan terima undangannya di akun Instagram. Selesaikan persyaratan dashboard untuk penggunaan Development/Standard Access akun penguji. Akses pengguna umum memerlukan review/akses yang sesuai dan belum termasuk pilot ini.
 3. Daftarkan redirect URI persis `https://carousel.hengker.tech/api/instagram/callback`. Lengkapi URL kebijakan privasi dan penghapusan data sesuai persyaratan dashboard sebelum mengaktifkan aplikasi untuk publik.
 4. Pilih konfigurasi Facebook Login for Business berlabel **Instagram Login Compatible** dan catat Configuration ID. Pastikan `instagram_basic` dan `instagram_content_publish` tersedia. Konfigurasi bawaan Meta juga dapat meminta izin pesan, komentar, dan iklan; kurangi izin opsional yang tidak dipakai lewat **Edit permissions** jika dashboard mengizinkan. Pilot hanya memakai profil dan publikasi carousel; ad account tidak diperlukan. Saat login, pilih business portfolio dan bagikan tepat satu akun Business/Creator. Jika beberapa akun dibagikan, koneksi ditolak agar tujuan posting tidak terpilih secara tidak sengaja.
-5. Verifikasi versi Graph API yang masih didukung, endpoint, serta batas media pada dokumentasi Meta saat setup. Isi `INSTAGRAM_API_VERSION` secara eksplisit, misalnya `vXX.0` diganti versi aktual; tidak ada versi default. Batas produk pilot tetap 5–10 JPEG persegi 1080 px, maksimal 8 MB per slide dan caption 2.200 karakter.
+5. Verifikasi versi Graph API yang masih didukung, endpoint, serta batas media pada dokumentasi Meta saat setup. Isi `INSTAGRAM_API_VERSION` secara eksplisit, misalnya `vXX.0` diganti versi aktual; tidak ada versi default. Batas produk pilot tetap 5–10 JPEG 1080 × 1350 (portrait) atau 1080 × 1080 (square), mengikuti snapshot proyek, maksimal 8 MB per slide dan caption 2.200 karakter.
 
 Referensi resmi: [Unified Login — Get started](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login/get-started), [Authentication](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login/authentication), [Content Publishing](https://developers.facebook.com/documentation/instagram-platform/content-publishing). Pada 7 November 2026, contoh resmi memakai Graph API `v27.0`, yang dipakai konfigurasi deployment ini.
 
@@ -91,7 +91,7 @@ Setelah semuanya siap, set `INSTAGRAM_ENABLED=true` di `wrangler.jsonc`, lalu de
 npm run deploy
 ```
 
-Buka Pengaturan → Instagram, hubungkan akun penguji. Buka proyek 5 slide, pilih Posting ke Instagram → isi caption → Siapkan posting. Browser menyimpan proyek, merender snapshot, mengunggah JPEG, dan menampilkan preview hasil. **Posting sekarang** adalah tindakan eksplisit yang baru memulai publikasi. Lakukan satu posting percobaan yang memang ingin diterbitkan; periksa urutan slide, caption, dan tautannya di Instagram. Tidak ada posting percobaan dalam tes otomatis.
+Buka menu akun di kiri bawah sidebar → Pengaturan, lalu kontrol Instagram, hubungkan akun penguji. Buka proyek 5 slide, pilih Posting ke Instagram → isi caption → Siapkan posting. Browser menyimpan proyek, merender snapshot, mengunggah JPEG, dan menampilkan preview hasil. **Posting sekarang** adalah tindakan eksplisit yang baru memulai publikasi. Lakukan satu posting percobaan yang memang ingin diterbitkan; periksa urutan slide, caption, dan tautannya di Instagram. Tidak ada posting percobaan dalam tes otomatis.
 
 Biarkan dialog posting terbuka sampai status berhasil. Jika dialog atau tab ditutup, buka proyek yang sama lalu **Posting ke Instagram** untuk melanjutkan job aktif. Jangan membuat persiapan baru hanya karena koneksi terputus; periksa status job yang sudah ada terlebih dahulu. Proyek 11–20 slide tetap dapat diunduh, tetapi posting langsung ditolak tanpa memotong slide.
 
@@ -122,6 +122,6 @@ Untuk lokal, gunakan D1 lokal (`npm run db:local`) dan variabel privat `.dev.var
 | Progres berhenti setelah dialog ditutup | Buka kembali dialog pada proyek yang sama. Pemrosesan berikutnya memerlukan permintaan dari dialog yang terbuka. |
 | Status memverifikasi | Periksa profil Instagram dan status job sebelum memposting ulang. Sistem tidak mengulangi panggilan publish yang hasilnya belum pasti. |
 | Persiapan kedaluwarsa | Setelah 48 jam sejak job dibuat, siapkan posting baru. Jika hasil publikasi sebelumnya belum pasti, periksa profil terlebih dahulu. |
-| Perlu dihubungkan ulang | Buka Pengaturan → Instagram dan lakukan login ulang; token yang sudah kedaluwarsa tidak dapat diperpanjang lewat alur refresh biasa. |
+| Perlu dihubungkan ulang | Buka menu akun di kiri bawah sidebar → Pengaturan, lalu kontrol Instagram dan lakukan login ulang; token yang sudah kedaluwarsa tidak dapat diperpanjang lewat alur refresh biasa. |
 
 Perubahan kode dan perintah pemeriksaan tidak otomatis melakukan deployment, menerapkan migrasi produksi, atau mempublikasikan posting. Aktivasi memerlukan konfigurasi Meta dan Cloudflare di atas; publikasi baru dimulai setelah tombol **Posting sekarang** ditekan.

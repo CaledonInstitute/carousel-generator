@@ -7,7 +7,7 @@ import {
   ExternalLink,
   RefreshCw,
 } from "lucide-react";
-import { api, type Project } from "./model";
+import { api, normalizeProject, type Project } from "./model";
 import { SlideArt } from "./slide";
 import { renderSlides } from "./transfer";
 import { Modal } from "./ui";
@@ -69,9 +69,9 @@ export function InstagramSettings() {
             ? "Izin Instagram dibatalkan. Kamu bisa mencoba lagi."
             : result === "accounts"
               ? "Bagikan tepat satu akun Instagram untuk dihubungkan, lalu coba lagi."
-            : result === "permissions"
-              ? "Izin publikasi belum diberikan. Hubungkan lagi dan izinkan akses publikasi."
-              : "Koneksi gagal. Periksa pengaturan Meta App dan coba lagi.",
+              : result === "permissions"
+                ? "Izin publikasi belum diberikan. Hubungkan lagi dan izinkan akses publikasi."
+                : "Koneksi gagal. Periksa pengaturan Meta App dan coba lagi.",
       );
       const url = new URL(location.href);
       url.searchParams.delete("instagram");
@@ -106,7 +106,7 @@ export function InstagramSettings() {
     }
   }
   return (
-    <section id="instagram" className="settings-instagram">
+    <div id="instagram" className="settings-instagram">
       <div className="section-heading">
         <Instagram size={22} />
         <div>
@@ -137,9 +137,9 @@ export function InstagramSettings() {
           </p>
           <p className="muted">
             Gunakan akun Business atau Creator. Versi awal mendukung satu akun
-            dan carousel 5–10 slide.
-            Saat menghubungkan, pilih portfolio bisnis dan bagikan satu akun
-            Instagram tujuan posting. Izin publikasi digunakan untuk menerbitkan carousel.
+            dan carousel 5–10 slide. Saat menghubungkan, pilih portfolio bisnis
+            dan bagikan satu akun Instagram tujuan posting. Izin publikasi
+            digunakan untuk menerbitkan carousel.
           </p>
           <div className="action-row">
             {(!status.connected || status.reconnect) && (
@@ -211,7 +211,7 @@ export function InstagramSettings() {
           </div>
         </Modal>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -322,7 +322,7 @@ export function InstagramPublisher({
         setJob(prepared);
         return;
       }
-      snapshot.current = prepared.project;
+      snapshot.current = normalizeProject(prepared.project);
       for (const url of urls.current) URL.revokeObjectURL(url);
       urls.current = [];
       setPreview([]);

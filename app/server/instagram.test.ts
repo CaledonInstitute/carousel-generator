@@ -82,7 +82,7 @@ async function connectFixture() {
 }
 // Minimal JPEG SOF header for metadata validation (no browser decoder is involved here).
 const jpeg = Uint8Array.from([
-  255, 216, 255, 224, 0, 2, 255, 192, 0, 17, 8, 4, 56, 4, 56, 3, 1, 17, 0, 2,
+  255, 216, 255, 224, 0, 2, 255, 192, 0, 17, 8, 5, 70, 4, 56, 3, 1, 17, 0, 2,
   17, 0, 3, 17, 0, 255, 217,
 ]);
 async function upload(id: string, index: number, bytes = jpeg) {
@@ -323,57 +323,99 @@ test("Unified Login uses config ID, validates grants, selects one shared account
     assert.equal(url.hostname, "graph.facebook.com");
     if (url.pathname.endsWith("/oauth/access_token")) {
       assert.equal(url.searchParams.get("client_id"), "app-id");
-      assert.equal(url.searchParams.get("redirect_uri"), `${base}/api/instagram/callback`);
+      assert.equal(
+        url.searchParams.get("redirect_uri"),
+        `${base}/api/instagram/callback`,
+      );
       return response({ access_token: "unified-private" });
     }
     if (url.pathname.endsWith("/debug_token"))
-      return response({ data: { is_valid: true, app_id: "app-id", scopes, expires_at: 0 } });
-    assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer unified-private");
+      return response({
+        data: { is_valid: true, app_id: "app-id", scopes, expires_at: 0 },
+      });
+    assert.equal(
+      new Headers(init?.headers).get("Authorization"),
+      "Bearer unified-private",
+    );
     if (url.pathname.endsWith("/me/assigned_instagram_accounts"))
       return response({ data: accounts });
-    if (url.pathname.endsWith("/me")) return response({ client_business_id: "portfolio-id" });
+    if (url.pathname.endsWith("/me"))
+      return response({ client_business_id: "portfolio-id" });
     if (url.pathname.endsWith("/unified-account/media"))
-      return invalidToken ? response({ error: { code: 190 } }, 400) : response({ id: "unified-child" });
+      return invalidToken
+        ? response({ error: { code: 190 } }, 400)
+        : response({ id: "unified-child" });
     assert.fail(`Unexpected API path ${url.pathname}`);
   };
   const callback = async () => {
-    const started = await (await call("/api/instagram/connect", "POST")).json() as { url: string };
+    const started = (await (
+      await call("/api/instagram/connect", "POST")
+    ).json()) as { url: string };
     const login = new URL(started.url);
-    assert.equal(login.origin + login.pathname, "https://www.facebook.com/dialog/oauth");
+    assert.equal(
+      login.origin + login.pathname,
+      "https://www.facebook.com/dialog/oauth",
+    );
     assert.equal(login.searchParams.get("config_id"), "config-id");
     assert.equal(login.searchParams.get("client_id"), "app-id");
     assert.equal(login.searchParams.has("scope"), false);
-    return call(`/api/instagram/callback?state=${login.searchParams.get("state")}&code=unified-code`);
+    return call(
+      `/api/instagram/callback?state=${login.searchParams.get("state")}&code=unified-code`,
+    );
   };
   try {
-    assert.equal((await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect, 1);
+    assert.equal(
+      (await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect,
+      1,
+    );
     scopes = ["instagram_basic"];
-    assert.match((await callback()).headers.get("location")!, /instagram=permissions/);
+    assert.match(
+      (await callback()).headers.get("location")!,
+      /instagram=permissions/,
+    );
     scopes.push("instagram_content_publish");
     accounts.push({ id: "second-account", username: "second" });
-    assert.match((await callback()).headers.get("location")!, /instagram=accounts/);
+    assert.match(
+      (await callback()).headers.get("location")!,
+      /instagram=accounts/,
+    );
     accounts = accounts.slice(0, 1);
-    assert.match((await callback()).headers.get("location")!, /instagram=connected/);
+    assert.match(
+      (await callback()).headers.get("location")!,
+      /instagram=connected/,
+    );
     const c = (await connection(env, env.INSTAGRAM_OWNER_ID!))!;
     assert.equal(c.account_id, "unified-account");
     assert.equal(c.client_business_id, "portfolio-id");
     assert.equal(c.config_id, "config-id");
     assert.equal(c.auth_method, "unified_login");
     assert.equal(c.expires, 0);
-    assert.equal(await decryptToken(c.token, key, c.user_id), "unified-private");
+    assert.equal(
+      await decryptToken(c.token, key, c.user_id),
+      "unified-private",
+    );
     const beforeRefresh = calls.length;
     await refreshConnections(env);
     assert.equal(calls.length, beforeRefresh);
-    const status = await (await call("/api/instagram/connection")).json() as { reconnect: boolean };
+    const status = (await (await call("/api/instagram/connection")).json()) as {
+      reconnect: boolean;
+    };
     assert.equal(status.reconnect, false);
     const j = await createJob();
-    for (let i = 0; i < 5; i++) assert.equal((await upload(j.id, i)).status, 200);
-    assert.equal((await call(`/api/instagram/jobs/${j.id}/publish`, "POST")).status, 202);
+    for (let i = 0; i < 5; i++)
+      assert.equal((await upload(j.id, i)).status, 200);
+    assert.equal(
+      (await call(`/api/instagram/jobs/${j.id}/publish`, "POST")).status,
+      202,
+    );
     assert.equal(await advanceJob(env, j.id), true);
     assert.ok(calls.includes("/v26.0/unified-account/media"));
     invalidToken = true;
     await advanceJob(env, j.id);
-    assert.equal((await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect, 1);
+    assert.equal(
+      (await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect,
+      1,
+    );
   } finally {
     delete env.INSTAGRAM_CONFIG_ID;
     globalThis.fetch = realFetch;
@@ -473,6 +515,33 @@ test("JPEG upload bounds, signed private media, complete order, and immutable pu
   await call(`/api/instagram/jobs/${job.id}/publish`, "POST");
   assert.equal((await jobRow(job.id))!.status, "queued");
   assert.equal((await upload(job.id, 0)).status, 409);
+});
+
+test("upload dimensions follow each immutable snapshot, including legacy square snapshots", async () => {
+  const portrait = await createJob();
+  const squareJPEG = jpeg.slice();
+  squareJPEG[11] = 4;
+  squareJPEG[12] = 56;
+  assert.equal((await upload(portrait.id, 0, squareJPEG)).status, 400);
+  assert.equal((await upload(portrait.id, 0, jpeg)).status, 200);
+  const legacy = {
+    ...project,
+    version: 2,
+    slides: project.slides.map((s) => ({
+      ...s,
+      title: "Lama",
+      body: "Isi",
+      secondary: "",
+      layout: "sampul",
+    })),
+  } as any;
+  delete legacy.format;
+  const old = await createJob();
+  await env.DB.prepare("UPDATE instagram_jobs SET snapshot=? WHERE id=?")
+    .bind(JSON.stringify(legacy), old.id)
+    .run();
+  assert.equal((await upload(old.id, 0, jpeg)).status, 400);
+  assert.equal((await upload(old.id, 0, squareJPEG)).status, 200);
 });
 
 test("D1 media chunks preserve large JPEGs, replace atomically, and expire without another service", async () => {

@@ -11,19 +11,48 @@ import {
   json,
   rateLimit,
 } from "./core";
-import { newProject, newSlide, type Layout, type Project } from "../model";
+import {
+  newProject,
+  newSlide,
+  normalizeProject,
+  type Layout,
+  type Project,
+} from "../model";
 import * as projects from "./projects";
 const color = z.string().regex(/^#[\da-f]{6}$/i);
 const style = z.object({
   font: z.enum(["Manrope", "DM Sans", "IBM Plex Sans"]),
-  size: z.number().min(22).max(46),
+  size: z.number().min(22).max(80),
   accent: color,
   background: color,
   color,
   align: z.enum(["left", "center"]),
 });
-const slide = z.object({
+const commonSlide = {
   id: z.string().max(100).optional(),
+  image: z
+    .string()
+    .optional()
+    .describe(
+      "Key in assets; public HTTPS PNG, JPEG or WebP, any aspect ratio, at most 12 MB",
+    ),
+  hideAccount: z.boolean().default(false),
+  hideNumber: z.boolean().default(false),
+  style: style.partial().default({}),
+  zoom: z.number().min(1).max(3).default(1),
+  x: z.number().min(0).max(100).default(50),
+  y: z.number().min(0).max(100).default(50),
+};
+const slide = z.object({
+  ...commonSlide,
+  layout: z.enum(["teks", "gambar"]),
+  text: z
+    .string()
+    .max(30004)
+    .describe("Paragraphs separated by newlines; **bold** supported"),
+});
+const legacySlide = z.object({
+  ...commonSlide,
   layout: z.enum([
     "sampul",
     "gambar",
@@ -35,33 +64,41 @@ const slide = z.object({
   title: z.string().max(10000),
   body: z.string().max(10000),
   secondary: z.string().max(10000).default(""),
-  image: z
-    .string()
-    .optional()
-    .describe(
-      "Key in assets; image must be a public HTTPS square PNG, JPEG or WebP",
-    ),
-  hideAccount: z.boolean().default(false),
-  hideNumber: z.boolean().default(false),
-  style: style.partial().default({}),
 });
-const content = z.object({
+const commonContent = {
   title: z.string().max(200),
   account: z.string().max(100).default(""),
-  numbers: z.boolean().default(true),
   style: style.optional(),
-  slides: z.array(slide).min(5).max(20),
   assets: z.record(z.string(), z.string().url()).default({}),
-});
+};
+const content = z.union([
+  z.object({
+    ...commonContent,
+    format: z.enum(["portrait", "square"]).default("portrait"),
+    numbers: z.boolean().default(false),
+    slides: z.array(slide).min(5).max(20),
+  }),
+  z
+    .object({
+      ...commonContent,
+      numbers: z.boolean().default(true),
+      slides: z.array(legacySlide).min(5).max(20),
+    })
+    .describe(
+      "Compatibility input for older clients; prefer text and teks/gambar modes",
+    ),
+]);
 function document(
   input: z.infer<typeof content>,
   id?: string,
   revision?: number,
 ): Project {
   const p = newProject();
-  return {
+  const legacy = !("format" in input);
+  return normalizeProject({
     ...p,
     ...input,
+    version: legacy ? 2 : 3,
     style: input.style ?? p.style,
     id: id ?? p.id,
     revision,
@@ -70,7 +107,7 @@ function document(
       ...s,
       id: s.id ?? crypto.randomUUID(),
     })),
-  };
+  });
 }
 export const mcpHandler = (db: DB, req: Request) =>
   guarded(async () => {
@@ -107,7 +144,7 @@ export const mcpHandler = (db: DB, req: Request) =>
       { name: "ruang-slide", version: "1.0.0" },
       {
         instructions:
-          "Manage private Carousel Generator carousels. Projects have 5–20 slides at 1080×1080. Use get_project before update/delete and pass its revision. Images must be public HTTPS URLs with exact 1:1 dimensions. Edits are shared with the web editor. Deletion is permanent.",
+          "Manage private Carousel Generator carousels. Projects have 5–20 slides. New projects use portrait 1080×1350; square 1080×1080 is also supported. Choose teks or gambar; write paragraphs in text with **bold**. Use get_project before update/delete and pass its revision. Images must be public HTTPS PNG/JPEG/WebP URLs, any aspect ratio, at most 12 MB. Edits are shared with the web editor. Deletion is permanent.",
       },
     );
     const result = async (run: () => Promise<unknown>) => {

@@ -144,13 +144,8 @@ export async function loadImage(value: unknown) {
         !info.height
       )
         fail(400, "Gunakan gambar PNG, JPEG, atau WebP yang valid.");
-      if (info.width !== info.height)
-        fail(
-          400,
-          `Gambar wajib 1:1. Ukuran gambar ini ${info.width} × ${info.height} piksel.`,
-        );
-      if (info.width > 16384)
-        fail(400, "Dimensi gambar maksimal 16384 × 16384 piksel.");
+      if (info.width > 16384 || info.height > 16384)
+        fail(400, "Dimensi gambar maksimal 16384 piksel pada setiap sisi.");
       return {
         bytes,
         width: info.width,

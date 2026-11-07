@@ -1,37 +1,46 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { House, Layers, LogOut, Menu, Settings2, X } from "lucide-react";
+import { Layers, LogOut, Menu, Settings2, X } from "lucide-react";
 import { api } from "./model";
 
-export function Logo({ compact = false }: { compact?: boolean }) {
+export function Logo({
+  compact = false,
+  href = "/proyek",
+}: {
+  compact?: boolean;
+  href?: string;
+}) {
   return (
-    <a href="/" className="logo" aria-label="Carousel Generator, beranda">
-      <span className="logo-mark">
+    <a href={href} className="logo" aria-label="Carousel Generator">
+      <span className="logo-mark" aria-hidden="true">
         <i />
         <i />
       </span>
-      {!compact && <span className="logo-name">Carousel<span>Generator</span></span>}
+      {!compact && (
+        <span className="logo-name">
+          Carousel<span>Generator</span>
+        </span>
+      )}
     </a>
   );
 }
 export function Header({ active = "" }: { active?: string }) {
-  const workspace = active === "projects" || active === "settings";
   const [user, setUser] = useState<{ username: string }>();
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [error, setError] = useState("");
-  const header = useRef<HTMLElement>(null);
-  const toggle = useRef<HTMLButtonElement>(null);
+  const [loading, setLoading] = useState(true),
+    [open, setOpen] = useState(false),
+    [account, setAccount] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false),
+    [error, setError] = useState("");
+  const header = useRef<HTMLElement>(null),
+    toggle = useRef<HTMLButtonElement>(null),
+    profile = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then(async (r) => {
-        if (r.ok) {
-          const value = (await r.json()) as { username: string };
-          if (!cancelled) setUser(value);
-        }
+    api<{ username: string }>("/api/auth/me")
+      .then((value) => {
+        if (!cancelled) setUser(value);
       })
       .catch(() => {})
       .finally(() => {
@@ -42,36 +51,87 @@ export function Header({ active = "" }: { active?: string }) {
     };
   }, []);
   useEffect(() => {
-    if (!open) return;
-    const oldOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const links = () => Array.from(header.current?.querySelectorAll<HTMLElement>('a,button:not(:disabled)') ?? []).filter((node) => node.offsetParent !== null && !node.classList.contains("nav-scrim"));
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Tab") {
-        const nodes = links();
-        const first = nodes[0], last = nodes[nodes.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    if (!account) return;
+    menu.current?.querySelector<HTMLElement>("a")?.focus();
+    const outside = (e: PointerEvent) => {
+      if (
+        !menu.current?.contains(e.target as Node) &&
+        !profile.current?.contains(e.target as Node)
+      )
+        setAccount(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setAccount(false);
+        profile.current?.focus();
       }
-      if (event.key === "Escape") {
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+        e.preventDefault();
+        const items = Array.from(
+          menu.current?.querySelectorAll<HTMLElement>("a,button") ?? [],
+        );
+        const current = items.indexOf(document.activeElement as HTMLElement);
+        const next =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? items.length - 1
+              : (current + (e.key === "ArrowUp" ? -1 : 1) + items.length) %
+                items.length;
+        items[next]?.focus();
+      }
+      if (e.key === "Tab") setAccount(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", key, true);
+    };
+  }, [account]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    header.current?.querySelector<HTMLElement>(".site-navigation a")?.focus();
+    const key = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.key === "Escape") {
         setOpen(false);
+        setAccount(false);
         toggle.current?.focus();
       }
-    };
-    const outside = (event: PointerEvent) => {
-      if (!header.current?.contains(event.target as Node)) setOpen(false);
+      if (e.key === "Tab") {
+        const nodes = Array.from(
+          header.current?.querySelectorAll<HTMLElement>(
+            "a,button:not(:disabled)",
+          ) ?? [],
+        ).filter(
+          (n) => n.offsetParent !== null && !n.classList.contains("nav-scrim"),
+        );
+        if (e.shiftKey && document.activeElement === nodes[0]) {
+          e.preventDefault();
+          nodes.at(-1)?.focus();
+        } else if (!e.shiftKey && document.activeElement === nodes.at(-1)) {
+          e.preventDefault();
+          nodes[0]?.focus();
+        }
+      }
     };
     const desktop = window.matchMedia("(min-width: 901px)");
     const resize = () => {
-      if (desktop.matches) setOpen(false);
+      if (desktop.matches) {
+        setOpen(false);
+        setAccount(false);
+      }
     };
-    document.addEventListener("keydown", close);
-    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", key);
     desktop.addEventListener("change", resize);
     return () => {
-      document.body.style.overflow = oldOverflow;
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("pointerdown", outside);
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", key);
       desktop.removeEventListener("change", resize);
     };
   }, [open]);
@@ -87,7 +147,10 @@ export function Header({ active = "" }: { active?: string }) {
     }
   }
   return (
-    <header ref={header} className={`site-header${workspace ? " app-sidebar" : ""}${open ? " menu-open" : ""}`}>
+    <header
+      ref={header}
+      className={`site-header app-sidebar${open ? " menu-open" : ""}`}
+    >
       <Logo />
       <button
         ref={toggle}
@@ -96,78 +159,96 @@ export function Header({ active = "" }: { active?: string }) {
         aria-expanded={open}
         aria-controls="site-navigation"
         aria-label={open ? "Tutup menu navigasi" : "Buka menu navigasi"}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setOpen(!open);
+          setAccount(false);
+        }}
       >
-        {open ? <X size={21} /> : <Menu size={21} />}
-        <span>{open ? "Tutup" : "Menu"}</span>
+        {open ? <X size={22} /> : <Menu size={22} />}
+        <span>Menu</span>
       </button>
-      {open && <button className="nav-scrim" aria-label="Tutup navigasi" onClick={() => { setOpen(false); toggle.current?.focus(); }} />}
+      {open && (
+        <button
+          className="nav-scrim"
+          aria-label="Tutup navigasi"
+          onClick={() => {
+            setOpen(false);
+            setAccount(false);
+            toggle.current?.focus();
+          }}
+        />
+      )}
       <div
         id="site-navigation"
         className={`site-navigation${open ? " is-open" : ""}`}
       >
         <nav aria-label="Navigasi utama">
-          {[
-            { key: "home", href: "/", label: "Beranda" },
-            { key: "projects", href: "/proyek", label: "Proyek saya" },
-            { key: "settings", href: "/pengaturan", label: "Pengaturan" },
-          ].map((item) => (
-            <a
-              key={item.key}
-              className={active === item.key ? "active" : undefined}
-              aria-current={active === item.key ? "page" : undefined}
-              href={item.href}
-              onClick={() => setOpen(false)}
-            >
-              {workspace && (item.key === "home" ? <House size={19} /> : item.key === "projects" ? <Layers size={19} /> : <Settings2 size={19} />)}
-              {item.label}
-            </a>
-          ))}
+          <a
+            href="/proyek"
+            className={active === "projects" ? "active" : undefined}
+            aria-current={active === "projects" ? "page" : undefined}
+          >
+            <Layers size={19} />
+            Dashboard
+          </a>
         </nav>
         <div className="account-nav" aria-busy={loading}>
           {loading ? (
             <span className="account-loading">
               <span className="sr-only">Memuat akun…</span>
             </span>
-          ) : user ? (
-            <>
-              <a
-                className="nav-profile"
-                href="/pengaturan"
-                title={`Pengaturan akun ${user.username}`}
-              >
-                <span className="nav-avatar" aria-hidden="true">
-                  {user.username.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="nav-username">{user.username}</span>
-              </a>
-              <button
-                className="nav-logout"
-                type="button"
-                disabled={loggingOut}
-                onClick={() => void logout()}
-              >
-                <LogOut size={16} />
-                <span>{loggingOut ? "Keluar…" : "Keluar"}</span>
-              </button>
-            </>
           ) : (
-            <>
-              <a className="nav-login" href="/masuk">
-                Masuk
-              </a>
-              <a className="nav-register" href="/daftar">
-                Daftar
-              </a>
-            </>
+            user && (
+              <>
+                <button
+                  ref={profile}
+                  type="button"
+                  className="nav-profile"
+                  aria-label={`Menu akun ${user.username}`}
+                  aria-expanded={account}
+                  aria-haspopup="menu"
+                  aria-controls="account-menu"
+                  onClick={() => setAccount(!account)}
+                >
+                  <span className="nav-avatar" aria-hidden="true">
+                    {user.username.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="nav-username">{user.username}</span>
+                  <span aria-hidden="true">⌃</span>
+                </button>
+                {account && (
+                  <div
+                    ref={menu}
+                    id="account-menu"
+                    className="account-menu"
+                    role="menu"
+                    aria-label="Akun"
+                  >
+                    <a role="menuitem" href="/pengaturan">
+                      <Settings2 size={17} />
+                      Pengaturan
+                    </a>
+                    <button
+                      role="menuitem"
+                      className="nav-logout"
+                      disabled={loggingOut}
+                      onClick={() => void logout()}
+                    >
+                      <LogOut size={17} />
+                      {loggingOut ? "Keluar…" : "Keluar"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )
+          )}
+          {error && (
+            <p className="nav-error" role="alert">
+              {error}
+            </p>
           )}
         </div>
       </div>
-      {error && (
-        <p className="nav-error" role="alert">
-          {error}
-        </p>
-      )}
     </header>
   );
 }
@@ -243,10 +324,17 @@ export function Modal({
         const nodes = ref.current?.querySelectorAll<HTMLElement>(
           'button:not(:disabled),a,input,select,textarea,[tabindex="0"]',
         );
-        if (!nodes?.length) { e.preventDefault(); return; }
+        if (!nodes?.length) {
+          e.preventDefault();
+          return;
+        }
         const first = nodes[0],
           last = nodes[nodes.length - 1];
-        if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) {
+        if (
+          e.shiftKey &&
+          (document.activeElement === first ||
+            document.activeElement === ref.current)
+        ) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {

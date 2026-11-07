@@ -9,25 +9,72 @@ import {
   exampleProject,
   newSlide,
   validateProject,
-  saveProject,
-  getProject,
-  listProjects,
-  deleteProject,
   effectiveStyle,
+  normalizeProject,
+  dimensions,
 } from "./model";
-import { SlideArt, slideWarnings, wrap, metrics } from "./slide";
+import { SlideArt, slideWarnings, wrap, metrics, richText } from "./slide";
 import { exportPNG, renderSlides } from "./transfer";
 
-test("new projects have five blank slides; example content stays separate", () => {
+test("new projects have five blank portrait text slides; examples include real images", () => {
   const p = newProject();
   validateProject(p);
   assert.equal(p.slides.length, 5);
-  assert.equal(p.slides[0].layout, "sampul");
-  assert.equal(p.slides[4].layout, "penutup");
-  assert.ok(p.slides.every((s) => !s.title && !s.body));
-  assert.ok(exampleProject().slides.every((s) => s.title));
+  assert.equal(p.format, "portrait");
+  assert.equal(p.numbers, false);
+  assert.ok(p.slides.every((s) => s.layout === "teks" && !s.text));
+  const example = exampleProject();
+  validateProject(example);
+  assert.ok(example.slides.every((s) => s.text));
+  assert.ok(
+    example.slides.some(
+      (s) => s.layout === "gambar" && s.image && example.assets[s.image],
+    ),
+  );
 });
-test("project validation rejects slide limits, invalid layouts, styles and missing assets", () => {
+test("legacy normalization preserves all content, style, identity and square dimensions", () => {
+  const legacy = {
+    ...newProject(),
+    version: 2,
+    slides: [
+      "sampul",
+      "gambar",
+      "daftar",
+      "langkah",
+      "perbandingan",
+      "penutup",
+    ].map((layout) => ({
+      ...newSlide(),
+      layout,
+      title: "Judul",
+      body: "Isi\nBaris kedua",
+      secondary: "Tambahan",
+    })),
+  };
+  const before = structuredClone(legacy),
+    normalized = normalizeProject(legacy);
+  validateProject(normalized);
+  assert.equal(normalized.version, 3);
+  assert.equal(normalized.format, "square");
+  assert.deepEqual(dimensions(normalized), { width: 1080, height: 1080 });
+  assert.equal(normalized.id, legacy.id);
+  assert.deepEqual(normalized.style, legacy.style);
+  normalized.slides.forEach((s, i) => {
+    assert.equal(s.id, legacy.slides[i].id);
+    assert.equal(s.text, "Judul\n\nIsi\nBaris kedua\n\nTambahan");
+    assert.equal(s.layout, i === 1 ? "gambar" : "teks");
+    assert.ok(!("title" in s));
+  });
+  assert.deepEqual(legacy, before);
+  assert.deepEqual(normalizeProject(normalized), normalized);
+  assert.throws(() =>
+    normalizeProject({
+      ...legacy,
+      slides: [{ ...legacy.slides[0], layout: "unknown" }],
+    }),
+  );
+});
+test("validation rejects invalid limits, layouts, styles, assets and crop bounds", () => {
   for (const count of [0, 4, 21]) {
     const p = newProject();
     p.slides = Array.from({ length: count }, () => newSlide());
@@ -36,63 +83,76 @@ test("project validation rejects slide limits, invalid layouts, styles and missi
   const max = newProject();
   max.slides = Array.from({ length: 20 }, () => newSlide());
   validateProject(max);
-  const invalid = newProject();
-  invalid.slides[0].layout = "unknown" as never;
-  assert.throws(() => validateProject(invalid));
-  const missing = newProject();
-  missing.slides[0].image = "missing";
-  assert.throws(() => validateProject(missing));
-  const font = newProject();
-  font.style.font = "unexpected";
-  assert.throws(() => validateProject(font));
-  const unsafe = newProject();
-  unsafe.style.accent = "url(https://example.com)";
-  assert.throws(() => validateProject(unsafe));
+  for (const patch of [
+    { layout: "unknown" },
+    { image: "missing" },
+    { zoom: 4 },
+    { x: -1 },
+    { y: 101 },
+    { text: 42 },
+  ]) {
+    const p = newProject();
+    Object.assign(p.slides[0], patch);
+    assert.throws(() => validateProject(p));
+  }
+  for (const patch of [
+    { font: "unknown" },
+    { size: 81 },
+    { accent: "url(https://example.com)" },
+  ]) {
+    const p = newProject();
+    Object.assign(p.style, patch);
+    assert.throws(() => validateProject(p));
+  }
 });
-test("renderer covers six layouts, escapes content, and excludes editor placeholders from export", () => {
+test("both render modes escape HTML, support bold and exclude editor placeholders from export", () => {
   const p = newProject();
-  for (const layout of [
-    "sampul",
-    "gambar",
-    "daftar",
-    "langkah",
-    "perbandingan",
-    "penutup",
-  ] as const) {
-    const s = newSlide(layout);
-    s.title = "<script>judul</script>";
-    s.body = "Satu\nDua";
-    s.secondary = "Sisi lain";
+  for (const layout of ["teks", "gambar"] as const) {
+    const s = {
+      ...newSlide(layout),
+      text: "<script>alert(1)</script> **Pesan utama**\n\nParagraf berikutnya.",
+    };
     const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
-    assert.match(svg, /width="1080" height="1080"/);
+    assert.match(svg, /width="1080" height="1350"/);
     assert.ok(!svg.includes("<script>"));
+    assert.match(svg, /font-weight="700"/);
+    assert.ok(!svg.includes("**"));
     assert.ok(!svg.includes("Tambahkan gambar"));
   }
   const s = newSlide("gambar");
-  assert.ok(
-    renderToStaticMarkup(<SlideArt project={p} slide={s} guides />).includes(
-      "Tambahkan gambar",
-    ),
+  assert.match(
+    renderToStaticMarkup(<SlideArt project={p} slide={s} guides />),
+    /Tambahkan gambar/,
   );
   assert.ok(
     !renderToStaticMarkup(<SlideArt project={p} slide={s} />).includes(
-      "Tulis judul",
+      "Tulis teks slide",
     ),
   );
 });
-test("text wrapping preserves long words, whitespace-separated text and explicit newlines", () => {
+test("unmatched bold markers stay visible", () => {
+  assert.deepEqual(richText("****"), [{ text: "****", bold: false }]);
+  assert.deepEqual(richText("**belum selesai"), [
+    { text: "**belum selesai", bold: false },
+  ]);
+});
+
+test("wrapping preserves long words and newlines, and warnings identify excessive content", () => {
   const input = "abcdefghijklmnopqrstuvwx";
   assert.equal(wrap(input, 80, 32).join(""), input);
   assert.deepEqual(wrap("Satu\nDua", 900, 32), ["Satu", "Dua"]);
   const p = newProject();
-  p.slides[0].body = "Teks sangat panjang. ".repeat(150);
+  p.slides[0].text = "Teks sangat panjang. ".repeat(150);
   assert.ok(slideWarnings(p, p.slides[0]).some((s) => s.startsWith("Teks")));
-  assert.ok(slideWarnings(p, p.slides[1]).some((s) => s.includes("gambar")));
+  assert.ok(
+    slideWarnings(p, newSlide("gambar")).some((s) => s.includes("gambar")),
+  );
   p.slides[0].style = { size: 40 };
   assert.equal(effectiveStyle(p, p.slides[0]).size, 40);
-  assert.equal(p.style.size, 32);
+  assert.equal(p.style.size, 48);
 });
-test("PNG export waits for fonts and images and writes ordered 1080-square files", async () => {
+
+test("PNG export waits for fonts and images and writes ordered portrait files", async () => {
   const original = {
     document: globalThis.document,
     Image: globalThis.Image,
@@ -170,6 +230,12 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
   });
   try {
     const p = exampleProject();
+    p.style.font = "Manrope";
+    p.assets = {};
+    p.slides.forEach((s) => {
+      s.layout = "teks";
+      delete s.image;
+    });
     p.assets.photo = "https://images.example.org/square.png";
     Object.assign(p.slides[1], {
       layout: "gambar",
@@ -208,7 +274,7 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
     }
     assert.equal(drawn, 5);
     assert.deepEqual(progress, [1, 2, 3, 4, 5]);
-    assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1080));
+    assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1350));
     const zip = await JSZip.loadAsync(await result!.arrayBuffer());
     assert.deepEqual(Object.keys(zip.files), [
       "slide-01.png",
@@ -222,7 +288,7 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
       jpegSlides.push(blob);
     assert.equal(jpegSlides.length, 5);
     assert.ok(jpegSlides.every((blob) => blob.type === "image/jpeg"));
-    assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1080));
+    assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1350));
     assert.equal(p.assets.photo, "https://images.example.org/square.png");
   } finally {
     Object.assign(globalThis, original);
@@ -236,6 +302,7 @@ test("PNG export identifies the slide when a remote image disappears", async () 
   try {
     const p = newProject();
     p.assets.photo = "https://images.example.org/gone.png";
+    p.slides[2].layout = "gambar";
     p.slides[2].image = "photo";
     await assert.rejects(
       exportPNG(p, () => {}),
@@ -245,33 +312,85 @@ test("PNG export identifies the slide when a remote image disappears", async () 
     globalThis.fetch = original;
   }
 });
-test("square image renderer keeps the full image without crop controls", () => {
-  const p = newProject(),
-    s = p.slides[1];
+test("images fill the lower canvas for portrait, square and landscape sources with bounded crop", () => {
+  const p = newProject();
   p.assets.photo = "https://images.example.org/photo.png";
-  s.image = "photo";
-  const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
-  assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
-  assert.match(svg, /width="424" height="424"/);
+  for (const [imageWidth, imageHeight] of [
+    [800, 1200],
+    [1200, 800],
+    [900, 900],
+  ]) {
+    const s = {
+      ...newSlide("gambar"),
+      text: "Cerita singkat.",
+      image: "photo",
+      imageWidth,
+      imageHeight,
+    };
+    const m = metrics(p, s);
+    assert.ok(m.imageHeight >= 1350 * 0.35);
+    assert.equal(m.imageY, m.contentBottom + 40);
+    const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
+    assert.match(svg, /clip-path="url/);
+    assert.match(svg, /preserveAspectRatio="none"/);
+    const moved = renderToStaticMarkup(
+      <SlideArt project={p} slide={{ ...s, zoom: 2, x: 0, y: 100 }} />,
+    );
+    assert.notEqual(svg, moved);
+  }
 });
-
-test("new compositions keep normal content safe and flag overflow in every text region", () => {
+test("layout grows short text, honors paragraphs and flags overflow in both modes", () => {
   const p = exampleProject();
-  for (const layout of ["sampul", "gambar", "daftar", "langkah", "perbandingan", "penutup"] as const) {
-    const s = { ...newSlide(layout), title: "Satu ide yang jelas", body: "Penjelasan singkat untuk pembaca.", secondary: "Simpan untuk nanti." };
-    assert.equal(metrics(p, s).overflow, false, layout);
-    assert.ok(metrics(p, s).titleBottom < metrics(p, s).bodyTop, layout);
-    assert.equal(metrics(p, { ...s, title: "Judul sangat panjang ".repeat(100) }).overflow, true, `${layout}: title`);
-    assert.equal(metrics(p, { ...s, body: "Isi sangat panjang ".repeat(200) }).overflow, true, `${layout}: body`);
-    if (layout === "perbandingan" || layout === "penutup") {
-      assert.equal(metrics(p, { ...s, secondary: "Kalimat panjang ".repeat(200) }).overflow, true, `${layout}: secondary`);
-    }
+  for (const layout of ["teks", "gambar"] as const) {
+    const s = {
+      ...newSlide(layout),
+      text: "Satu ide yang jelas.\n\nPenjelasan singkat untuk pembaca.",
+    };
+    const m = metrics(p, s);
+    assert.equal(m.overflow, false);
+    assert.equal(m.size, 80);
+    assert.ok(m.lines.some((line) => line.gap));
+    assert.equal(
+      metrics(p, { ...s, text: "Isi sangat panjang ".repeat(200) }).overflow,
+      true,
+    );
+    const noAccount = metrics(p, { ...s, hideAccount: true });
+    assert.ok(noAccount.top < m.top);
+  }
+});
+test("inactive image assets are not fetched during text-mode export", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw Error("font fetch reached");
+  };
+  const doc = globalThis.document;
+  Object.assign(globalThis, {
+    document: { fonts: { ready: Promise.resolve() } },
+  });
+  try {
+    const p = newProject();
+    p.assets.photo = "https://example.org/gone.png";
+    p.slides[0].image = "photo";
+    await assert.rejects(
+      exportPNG(p, () => {}),
+      /font fetch reached/,
+    );
+  } finally {
+    globalThis.fetch = original;
+    Object.assign(globalThis, { document: doc });
   }
 });
 
 test("existing project style, alignment and identity controls survive composition changes", () => {
   const p = exampleProject();
-  p.style = { font: "DM Sans", size: 40, accent: "#992244", background: "#112233", color: "#FFFFFF", align: "center" };
+  p.style = {
+    font: "DM Sans",
+    size: 40,
+    accent: "#992244",
+    background: "#112233",
+    color: "#FFFFFF",
+    align: "center",
+  };
   const before = structuredClone(p);
   const s = { ...p.slides[0], hideAccount: true, hideNumber: true };
   const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);

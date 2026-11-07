@@ -2,7 +2,12 @@ import React from "react";
 import JSZip from "jszip";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SlideArt } from "./slide";
-import { imageSource, type Project } from "./model";
+import {
+  imageSource,
+  dimensions,
+  normalizeProject,
+  type Project,
+} from "./model";
 // Workers also import this module during SSR. Resolve font URLs only when
 // exporting in the browser, where import.meta.url is a valid asset base.
 const getFontFiles = () => ({
@@ -62,9 +67,10 @@ export async function* renderSlides(
   p: Project,
   format: "image/png" | "image/jpeg" = "image/png",
 ): AsyncGenerator<Blob> {
-  p = structuredClone(p);
+  p = normalizeProject(p);
   for (const [index, slide] of p.slides.entries()) {
     if (
+      slide.layout !== "gambar" ||
       !slide.image ||
       !p.assets[slide.image] ||
       p.assets[slide.image].startsWith("data:")
@@ -107,11 +113,13 @@ export async function* renderSlides(
       img.src = url;
       await img.decode();
       const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 1080;
+      const { width, height } = dimensions(p);
+      canvas.width = width;
+      canvas.height = height;
       const context = canvas.getContext("2d");
       if (!context) throw Error("Browser tidak mendukung ekspor gambar.");
       context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, 1080, 1080);
+      context.fillRect(0, 0, width, height);
       context.drawImage(img, 0, 0);
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob(

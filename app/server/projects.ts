@@ -1,4 +1,4 @@
-import { validateProject, type Project } from "../model";
+import { validateProject, normalizeProject, type Project } from "../model";
 import { type DB, fail, now } from "./core";
 import { loadImage } from "./images";
 export async function get(db: DB, owner: string, id: string): Promise<Project> {
@@ -10,7 +10,7 @@ export async function get(db: DB, owner: string, id: string): Promise<Project> {
     .first<{ document: string; revision: number; updated: number }>();
   if (!row) return fail(404, "Proyek tidak ditemukan.");
   return {
-    ...JSON.parse(row.document),
+    ...normalizeProject(JSON.parse(row.document)),
     revision: row.revision,
     updated: row.updated,
   };
@@ -25,7 +25,7 @@ export async function list(db: DB, owner: string) {
   return rows.results.map(
     (r) =>
       ({
-        ...JSON.parse(r.document),
+        ...normalizeProject(JSON.parse(r.document)),
         revision: r.revision,
         updated: r.updated,
       }) as Project,
@@ -37,8 +37,9 @@ export async function save(
   input: unknown,
   create = false,
 ) {
-  const p = structuredClone(input) as Project;
+  let p: Project;
   try {
+    p = normalizeProject(input);
     validateProject(p);
   } catch (e) {
     return fail(400, (e as Error).message);
@@ -59,9 +60,7 @@ export async function save(
   for (const [id, url] of Object.entries(p.assets)) {
     const matching =
       old?.assets[id] === url &&
-      old.slides.find(
-        (s) => s.image === id && s.imageWidth === s.imageHeight && s.imageWidth,
-      );
+      old.slides.find((s) => s.image === id && s.imageWidth && s.imageHeight);
     const info = matching
       ? { width: matching.imageWidth!, height: matching.imageHeight! }
       : await loadImage(url);

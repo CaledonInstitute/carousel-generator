@@ -57,7 +57,12 @@ try {
     `/editor/${project.id}`,
   ]) {
     for (let visit = 0; visit < 2; visit++) {
-      const res = await api(path, "GET", undefined, cookie);
+      const res = await api(
+        path,
+        "GET",
+        undefined,
+        ["/masuk", "/daftar"].includes(path) ? "" : cookie,
+      );
       const html = await res.text();
       assert.equal(res.status, 200, `${path}: ${html.slice(0, 500)}`);
       assert.ok(!html.includes("__next_error__"), `${path}: SSR error`);
@@ -74,12 +79,17 @@ try {
           "token-pribadi",
         ])
           assert.ok(html.includes(`id="${anchor}"`));
-        assert.ok(html.includes('aria-label="Bagian pengaturan"'));
+        assert.ok(!html.includes('aria-label="Bagian pengaturan"'));
         assert.ok(html.includes('id="mcp-url"'));
         assert.ok(html.includes("https://claude.ai/customize/connectors"));
       }
     }
     console.log(`PASS ${path} (direct request + reload)`);
+  }
+  for (const path of ["/masuk", "/daftar"]) {
+    const res = await api(path, "GET", undefined, cookie);
+    assert.equal(res.status, 307);
+    assert.equal(res.headers.get("location"), "/proyek");
   }
   const guide = await api("/panduan");
   assert.ok(

@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api } from "./model";
-import { Header } from "./ui";
+import { Logo } from "./ui";
 export function AuthForm({ register = false }: { register?: boolean }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -40,13 +40,15 @@ export function AuthForm({ register = false }: { register?: boolean }) {
   }
   return (
     <>
-      <Header />
-      <main className="account-page auth-page">
-        <h1>{register ? "Buat ruang untuk idemu." : "Lanjutkan ceritamu."}</h1>
+      <main className="auth-page">
+        <div className="auth-brand">
+          <Logo href="/" />
+        </div>
+        <h1>{register ? "Buat akun" : "Masuk"}</h1>
         <p>
           {register
-            ? "Daftar untuk menyimpan carousel dan menghubungkan agent."
-            : "Masuk untuk membuka proyek dan koneksi agent milikmu."}
+            ? "Simpan dan kelola carousel dalam satu tempat."
+            : "Masuk untuk melanjutkan carousel-mu."}
         </p>
         <form onSubmit={submit} className="account-form">
           <div className="field">
@@ -60,7 +62,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
               maxLength={32}
               pattern="[A-Za-z0-9_-]{3,32}"
             />
-            <small>3–32 huruf, angka, _ atau -.</small>
+            {register && <small>3–32 huruf, angka, _ atau -.</small>}
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
@@ -73,9 +75,12 @@ export function AuthForm({ register = false }: { register?: boolean }) {
               minLength={12}
               maxLength={128}
             />
-            <small>
-              12–128 karakter. Simpan passwordmu; tidak tersedia reset password.
-            </small>
+            {register && (
+              <small>
+                12–128 karakter. Simpan passwordmu; tidak tersedia reset
+                password.
+              </small>
+            )}
           </div>
           {register && (
             <div className="field">

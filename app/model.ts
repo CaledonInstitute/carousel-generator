@@ -1,12 +1,7 @@
-export type Layout =
-  "sampul" | "gambar" | "daftar" | "langkah" | "perbandingan" | "penutup";
+export type Layout = "teks" | "gambar";
 export const layouts: Record<Layout, string> = {
-  sampul: "Sampul",
-  gambar: "Teks & gambar",
-  daftar: "Daftar",
-  langkah: "Langkah",
-  perbandingan: "Perbandingan",
-  penutup: "Penutup",
+  teks: "Teks",
+  gambar: "Teks + gambar",
 };
 export type Style = {
   font: string;
@@ -19,9 +14,7 @@ export type Style = {
 export type Slide = {
   id: string;
   layout: Layout;
-  title: string;
-  body: string;
-  secondary: string;
+  text: string;
   image?: string;
   imageWidth?: number;
   imageHeight?: number;
@@ -33,7 +26,8 @@ export type Slide = {
   style: Partial<Style>;
 };
 export type Project = {
-  version: 2;
+  version: 3;
+  format: "portrait" | "square";
   revision?: number;
   id: string;
   title: string;
@@ -46,20 +40,22 @@ export type Project = {
 };
 export const uid = () => crypto.randomUUID();
 export const baseStyle: Style = {
-  font: "Manrope",
-  size: 32,
+  font: "IBM Plex Sans",
+  size: 48,
   accent: "#315CDB",
   background: "#FFFFFF",
-  color: "#202936",
+  color: "#000000",
   align: "left",
 };
-export function newSlide(layout: Layout = "gambar"): Slide {
+export const dimensions = (p: Project) => ({
+  width: 1080,
+  height: p.format === "portrait" ? 1350 : 1080,
+});
+export function newSlide(layout: Layout = "teks"): Slide {
   return {
     id: uid(),
     layout,
-    title: "",
-    body: "",
-    secondary: "",
+    text: "",
     zoom: 1,
     x: 50,
     y: 50,
@@ -70,16 +66,15 @@ export function newSlide(layout: Layout = "gambar"): Slide {
 }
 export function newProject(): Project {
   return {
-    version: 2,
+    version: 3,
+    format: "portrait",
     id: uid(),
     title: "Carousel tanpa judul",
     updated: Date.now(),
     account: "",
-    numbers: true,
+    numbers: false,
     style: { ...baseStyle },
-    slides: ["sampul", "gambar", "daftar", "langkah", "penutup"].map((l) =>
-      newSlide(l as Layout),
-    ),
+    slides: Array.from({ length: 5 }, () => newSlide()),
     assets: {},
   };
 }
@@ -87,45 +82,58 @@ export function exampleProject(): Project {
   const p = newProject();
   p.title = "Cara menjelaskan ide yang rumit";
   p.account = "@carouselgenerator";
-  const content: [Layout, string, string, string][] = [
-    [
-      "sampul",
-      "Ide rumit.\nPenjelasan\nsederhana.",
-      "Buat orang paham,\nbukan sekadar terkesan.",
-      "",
-    ],
-    [
-      "daftar",
-      "Mulai dari yang\nsudah mereka tahu.",
-      "Kenali siapa yang mendengarkan.\nHubungkan dengan pengalaman sehari-hari.\nGunakan satu contoh yang dekat.",
-      "",
-    ],
-    [
-      "perbandingan",
-      "Sederhana bukan\nberarti dangkal.",
-      "Terlalu rumit\n“Optimalkan alokasi sumber daya kognitif.”",
-      "Lebih mudah\n“Fokus pada satu hal dulu.”",
-    ],
-    [
-      "langkah",
-      "Satu slide.\nSatu gagasan.",
-      "Tentukan pesan utamanya.\nSingkirkan yang tidak mendukung.\nBeri ruang untuk mencerna.",
-      "",
-    ],
-    [
-      "penutup",
-      "Ide yang baik\nlayak dipahami.",
-      "Mulai dari satu gagasan.\nJelaskan dengan caramu.",
-      "Simpan untuk nanti.",
-    ],
+  p.assets.conversation =
+    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1600&q=85";
+  const texts = [
+    "Ide yang rumit bisa dijelaskan dengan sederhana.\n\nMulai dari hal yang dekat dengan kehidupan pembacamu.",
+    "Sebelum menjelaskan, **kenali siapa yang mendengarkan.**\n\nApa yang sudah mereka tahu? Pengalaman apa yang bisa menjadi jembatan menuju idemu?",
+    "Sederhana bukan berarti dangkal.\n\nDaripada menggunakan istilah yang sulit, coba katakan **fokus pada satu hal dulu.** Pesannya sama, lebih mudah dipahami.",
+    "**Satu slide, satu gagasan.**\n\nTentukan pesan utamanya. Tambahkan contoh yang dekat, lalu singkirkan kalimat yang tidak membantu pembaca memahaminya.",
+    "Ide yang baik layak dipahami.\n\nPilih satu gagasan yang ingin kamu bagikan hari ini. Jelaskan dengan bahasamu sendiri, seolah kamu sedang bercerita kepada teman.",
   ];
-  p.slides = content.map(([layout, title, body, secondary]) => ({
-    ...newSlide(layout),
-    title,
-    body,
-    secondary,
+  p.slides = texts.map((text, i) => ({
+    ...newSlide(i === 0 || i === 3 ? "gambar" : "teks"),
+    text,
+    ...(i === 0 || i === 3
+      ? { image: "conversation", imageWidth: 1600, imageHeight: 1067 }
+      : {}),
   }));
   return p;
+}
+const legacyLayouts = [
+  "sampul",
+  "gambar",
+  "daftar",
+  "langkah",
+  "perbandingan",
+  "penutup",
+];
+export function normalizeProject(value: unknown): Project {
+  const p = structuredClone(value) as any;
+  if (p?.version !== 2) return p;
+  if (
+    !Array.isArray(p.slides) ||
+    p.slides.some(
+      (s: any) =>
+        !s ||
+        !legacyLayouts.includes(s.layout) ||
+        ["title", "body", "secondary"].some((k) => typeof s[k] !== "string"),
+    )
+  )
+    throw Error("Data proyek lama tidak valid.");
+  return {
+    ...p,
+    version: 3,
+    format: "square",
+    slides: p.slides.map((s: any) => {
+      const { title, body, secondary, ...rest } = s;
+      return {
+        ...rest,
+        layout: s.layout === "gambar" ? "gambar" : "teks",
+        text: [title, body, secondary].filter(Boolean).join("\n\n"),
+      };
+    }),
+  };
 }
 export class ApiError extends Error {
   constructor(
@@ -170,8 +178,10 @@ export async function saveProject(p: Project): Promise<Project> {
   p.updated = saved.updated;
   return saved;
 }
-export const getProject = (id: string) => api<Project>(`/api/projects/${id}`);
-export const listProjects = () => api<Project[]>("/api/projects");
+export const getProject = (id: string) =>
+  api<unknown>(`/api/projects/${id}`).then(normalizeProject);
+export const listProjects = () =>
+  api<unknown[]>("/api/projects").then((items) => items.map(normalizeProject));
 export const deleteProject = (id: string, revision: number) =>
   api<{ ok: boolean }>(`/api/projects/${id}`, {
     method: "DELETE",
@@ -187,6 +197,7 @@ export function validateProject(value: unknown): asserts value is Project {
   const styleValid = (s: Partial<Style>, partial = false) =>
     s &&
     typeof s === "object" &&
+    !Array.isArray(s) &&
     (partial ||
       ["font", "size", "accent", "background", "color", "align"].every(
         (k) => k in s,
@@ -195,14 +206,15 @@ export function validateProject(value: unknown): asserts value is Project {
       k === "font"
         ? ["Manrope", "DM Sans", "IBM Plex Sans"].includes(v as string)
         : k === "size"
-          ? typeof v === "number" && v >= 22 && v <= 46
+          ? typeof v === "number" && v >= 22 && v <= 80
           : ["accent", "background", "color"].includes(k)
             ? typeof v === "string" && /^#[\da-f]{6}$/i.test(v)
             : k === "align" && ["left", "center"].includes(v as string),
     );
   if (
     !p ||
-    p.version !== 2 ||
+    p.version !== 3 ||
+    !["portrait", "square"].includes(p.format) ||
     typeof p.id !== "string" ||
     p.id.length > 100 ||
     typeof p.title !== "string" ||
@@ -233,18 +245,21 @@ export function validateProject(value: unknown): asserts value is Project {
         typeof s.id !== "string" ||
         s.id.length > 100 ||
         !Object.hasOwn(layouts, s.layout) ||
-        ["title", "body", "secondary"].some(
+        ["text"].some(
           (k) =>
             typeof s[k as keyof Slide] !== "string" ||
-            String(s[k as keyof Slide]).length > 10000,
+            String(s[k as keyof Slide]).length > 30004,
         ) ||
         !styleValid(s.style, true) ||
         typeof s.hideAccount !== "boolean" ||
         typeof s.hideNumber !== "boolean" ||
         ![s.zoom, s.x, s.y].every(Number.isFinite) ||
-        s.zoom !== 1 ||
-        s.x !== 50 ||
-        s.y !== 50 ||
+        s.zoom < 1 ||
+        s.zoom > 3 ||
+        s.x < 0 ||
+        s.x > 100 ||
+        s.y < 0 ||
+        s.y > 100 ||
         (s.image !== undefined &&
           (typeof s.image !== "string" || !Object.hasOwn(p.assets, s.image))),
     )

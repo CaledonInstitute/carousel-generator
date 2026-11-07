@@ -94,7 +94,9 @@ p {
   top: 7px;
   background: #fff;
 }
-.brand-mark i:first-child { opacity: .4; }
+.brand-mark i:first-child {
+  opacity: 0.4;
+}
 .consent-header-note {
   font-size: 13px;
   color: #5d6878;
@@ -356,9 +358,74 @@ p {
   }
 }
 
-.consent-brand > span:last-child { line-height: 1.05; letter-spacing: -.4px; }
-.brand-light { display: block; }
-.consent-shell { border: 1px solid #dce3ec; border-radius: 14px; margin: 40px auto 64px; padding: 32px; }
-.consent-bridge { justify-content: flex-start; margin: 0 0 28px; max-width: 240px; }
-.consent-header-note { font-size: 13px; }
-@media (max-width: 600px) { .consent-shell { margin: 24px 20px; padding: 24px; } .consent-header-note { display: none; } }
+.consent-brand > span:last-child {
+  line-height: 1.05;
+  letter-spacing: -0.4px;
+}
+.brand-light {
+  display: block;
+}
+.consent-shell {
+  border: 1px solid #dce3ec;
+  border-radius: 14px;
+  margin: 40px auto 64px;
+  padding: 32px;
+}
+.consent-bridge {
+  justify-content: flex-start;
+  margin: 0 0 28px;
+  max-width: 240px;
+}
+.consent-header-note {
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .consent-shell {
+    margin: 24px 20px;
+    padding: 24px;
+  }
+  .consent-header-note {
+    display: none;
+  }
+}
+
+/* Shared studio palette and restrained surfaces. */
+body {
+  color: #000;
+  background: #f5f7fa;
+}
+.consent-header {
+  background: #fff;
+  border-bottom: 1px solid #dde2e8;
+}
+.consent-shell {
+  background: #fff;
+  padding: 32px;
+  border: 1px solid #dde2e8;
+  border-radius: 8px;
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+.consent-permissions {
+  background: transparent;
+  border-color: #dde2e8;
+  box-shadow: none;
+}
+.consent-intro h1 {
+  font-weight: 500;
+}
+.consent-bridge {
+  display: none;
+}
+@media (max-width: 600px) {
+  .consent-shell {
+    margin: 24px 16px;
+    padding: 24px 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

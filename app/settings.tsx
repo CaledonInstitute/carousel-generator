@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Check,
   CheckCheck,
-  ChevronRight,
   Copy,
   ExternalLink,
   Eye,
@@ -17,7 +16,6 @@ import {
   ShieldCheck,
   Unplug,
   X,
-  Camera as Instagram,
 } from "lucide-react";
 import { api } from "./model";
 import { Header, Modal } from "./ui";
@@ -44,14 +42,12 @@ export function Settings({ username }: { username: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [client, setClient] = useState<"claude" | "other">("claude");
   const [copied, setCopied] = useState("");
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [creating, setCreating] = useState(false);
   const [pending, setPending] = useState<PendingAccess>();
   const [revoking, setRevoking] = useState(false);
-  const [section, setSection] = useState("akun");
   const tokenInput = useRef<HTMLInputElement>(null);
   const refreshSequence = useRef(0);
   const busy = creating || revoking;
@@ -85,21 +81,6 @@ export function Settings({ username }: { username: string }) {
     const timer = setTimeout(() => setNotice(""), 6000);
     return () => clearTimeout(timer);
   }, [notice]);
-  useEffect(() => {
-    const sections = Array.from(document.querySelectorAll<HTMLElement>(".settings-content > section[id]"));
-    const update = () => {
-      const threshold = window.innerWidth <= 900 ? 120 : 80;
-      const visible = sections.filter((node) => node.getBoundingClientRect().top <= threshold);
-      setSection((visible.at(-1) ?? sections[0])?.id ?? "akun");
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
   async function copy(value: string, key: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -192,56 +173,27 @@ export function Settings({ username }: { username: string }) {
     <>
       <Header active="settings" />
       <main className="settings-shell workspace-page">
-        <aside className="settings-sidebar">
-          <div className="settings-sidebar-heading">
-            <h2>Pengaturan</h2>
-            <p>Ruang kerja pribadimu.</p>
-          </div>
-          <nav aria-label="Bagian pengaturan">
-            {[
-              { id: "akun", label: "Akun", icon: ShieldCheck },
-              { id: "hubungkan", label: "Koneksi agent", icon: Plug },
-              { id: "instagram", label: "Instagram", icon: Instagram },
-              { id: "akses-agent", label: "Akses agent", icon: ShieldCheck },
-              { id: "token-pribadi", label: "Token pribadi", icon: KeyRound },
-            ].map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                aria-current={section === item.id ? "location" : undefined}
-                onClick={() => setSection(item.id)}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-                {section === item.id && <ChevronRight size={15} />}
-              </a>
-            ))}
-          </nav>
-          <div className="settings-identity">
-            <span className="settings-avatar" aria-hidden="true">
-              {username.slice(0, 1).toUpperCase()}
-            </span>
-            <div>
-              <strong title={username}>{username}</strong>
-              <span>Akun Carousel Generator</span>
-            </div>
-          </div>
-          <a className="settings-back" href="/proyek">
-            Kembali ke proyek <ChevronRight size={14} />
-          </a>
-        </aside>
         <div className="settings-content">
-          <section id="akun" className="settings-account">
+          <div id="akun" className="settings-account">
             <h1>Pengaturan</h1>
             <p>Kelola akun dan koneksi untuk membuat carousel.</p>
-            <div className="account-summary"><span className="nav-avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><div><h2>{username}</h2><p>Akun Carousel Generator</p></div></div>
-          </section>
-          <section id="hubungkan" className="settings-connect">
+            <div className="account-summary">
+              <span className="nav-avatar" aria-hidden="true">
+                {username.slice(0, 1).toUpperCase()}
+              </span>
+              <div>
+                <h2>{username}</h2>
+                <p>Akun Carousel Generator</p>
+              </div>
+            </div>
+          </div>
+          <InstagramSettings />
+          <div id="hubungkan" className="settings-connect">
             <div className="settings-page-heading">
               <h2>Koneksi agent</h2>
               <p>
-                Hubungkan agent ke Carousel Generator. Susun materi di chat, lalu
-                lanjutkan desain di editor yang sama.
+                Hubungkan agent ke Carousel Generator. Susun materi di chat,
+                lalu lanjutkan desain di editor yang sama.
               </p>
             </div>
             <div className="mcp-endpoint">
@@ -250,7 +202,7 @@ export function Settings({ username }: { username: string }) {
                   <Plug size={24} />
                 </span>
                 <div>
-                  <h2>Satu koneksi ke ruang kerjamu.</h2>
+                  <h2>URL server MCP</h2>
                   <p>Untuk Claude dan client MCP lainnya.</p>
                 </div>
               </div>
@@ -271,104 +223,76 @@ export function Settings({ username }: { username: string }) {
             </div>
             <div className="mcp-setup">
               <div className="mcp-setup-heading">
-                <h2>Mulai dari client yang kamu pakai.</h2>
-                <div
-                  className="client-picker"
-                  role="group"
-                  aria-label="Pilih client MCP"
-                >
-                  <button
-                    type="button"
-                    aria-pressed={client === "claude"}
-                    onClick={() => setClient("claude")}
-                  >
-                    Claude.ai
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={client === "other"}
-                    onClick={() => setClient("other")}
-                  >
-                    Agent lain
-                  </button>
-                </div>
+                <h2>Petunjuk koneksi</h2>
               </div>
-              {client === "claude" ? (
-                <div className="setup-content">
-                  <ol className="connection-steps">
-                    <li>
-                      <span aria-hidden="true">1</span>
-                      <div>
-                        <h3>Tambahkan konektor di Claude</h3>
-                        <p>
-                          Buka Customize, pilih Connectors, lalu Add custom
-                          connector.
-                        </p>
-                      </div>
-                    </li>
-                    <li>
-                      <span aria-hidden="true">2</span>
-                      <div>
-                        <h3>Tempel URL Carousel Generator</h3>
-                        <p>
-                          Beri nama “Carousel Generator”, lalu gunakan URL server MCP
-                          di atas. Jika diminta memilih OAuth client, pilih
-                          “Register automatically”.
-                        </p>
-                      </div>
-                    </li>
-                    <li>
-                      <span aria-hidden="true">3</span>
-                      <div>
-                        <h3>Masuk dan izinkan akses</h3>
-                        <p>
-                          Pakai akun <strong>{username}</strong>. Setelah
-                          terhubung, minta Claude membuat atau mengedit
-                          carousel.
-                        </p>
-                      </div>
-                    </li>
-                  </ol>
-                  <div className="setup-links">
-                    <a
-                      className="button"
-                      href="https://claude.ai/customize/connectors"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Buka konektor Claude <ExternalLink size={16} />
-                    </a>
-                    <a
-                      href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Petunjuk Claude <ExternalLink size={13} />
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="setup-content other-client">
-                  <h3>Gunakan URL yang sama.</h3>
-                  <p>
-                    Jika client mendukung login melalui browser, sambungkan URL
-                    MCP lalu masuk ke Carousel Generator. Jika client memerlukan token,
-                    buat token pribadi di bawah.
-                  </p>
-                  <div className="header-example">
+
+              <div className="setup-content">
+                <ol className="connection-steps">
+                  <li>
+                    <span aria-hidden="true">1</span>
                     <div>
-                      <span>
-                        Header autentikasi untuk client berbasis token
-                      </span>
-                      {copyButton(AUTH_HEADER, "header", "contoh header")}
+                      <h3>Tambahkan konektor di Claude</h3>
+                      <p>
+                        Buka Customize, pilih Connectors, lalu Add custom
+                        connector.
+                      </p>
                     </div>
-                    <code>{AUTH_HEADER}</code>
-                  </div>
-                  <a className="settings-inline-link" href="#token-pribadi">
-                    Buat token pribadi <ChevronRight size={15} />
+                  </li>
+                  <li>
+                    <span aria-hidden="true">2</span>
+                    <div>
+                      <h3>Tempel URL Carousel Generator</h3>
+                      <p>
+                        Beri nama “Carousel Generator”, lalu gunakan URL server
+                        MCP di atas. Jika diminta memilih OAuth client, pilih
+                        “Register automatically”.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <span aria-hidden="true">3</span>
+                    <div>
+                      <h3>Masuk dan izinkan akses</h3>
+                      <p>
+                        Pakai akun <strong>{username}</strong>. Setelah
+                        terhubung, minta Claude membuat atau mengedit carousel.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+                <div className="setup-links">
+                  <a
+                    className="button"
+                    href="https://claude.ai/customize/connectors"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Buka konektor Claude <ExternalLink size={16} />
+                  </a>
+                  <a
+                    href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Petunjuk Claude <ExternalLink size={13} />
                   </a>
                 </div>
-              )}
+              </div>
+              <div className="setup-content other-client">
+                <h3>Gunakan URL yang sama.</h3>
+                <p>
+                  Jika client mendukung login melalui browser, sambungkan URL
+                  MCP lalu masuk ke Carousel Generator. Jika client memerlukan
+                  token, buat token pribadi di bawah.
+                </p>
+                <div className="header-example">
+                  <div>
+                    <span>Header autentikasi untuk client berbasis token</span>
+                    {copyButton(AUTH_HEADER, "header", "contoh header")}
+                  </div>
+                  <code>{AUTH_HEADER}</code>
+                </div>
+              </div>
             </div>
             <div className="agent-capabilities">
               <ShieldCheck size={19} />
@@ -378,10 +302,9 @@ export function Settings({ username }: { username: string }) {
                 editor.
               </p>
             </div>
-          </section>
+          </div>
 
-          <InstagramSettings />
-          <section id="akses-agent" className="settings-access">
+          <div id="akses-agent" className="settings-access">
             <div className="settings-section-title">
               <div>
                 <h2>Agent yang punya akses</h2>
@@ -434,12 +357,9 @@ export function Settings({ username }: { username: string }) {
                 </span>
                 <h3>Ruangmu belum terhubung.</h3>
                 <p>
-                  Tambahkan Carousel Generator di client pilihanmu. Koneksinya akan
-                  muncul di sini setelah kamu memberi izin.
+                  Tambahkan Carousel Generator di client pilihanmu. Koneksinya
+                  akan muncul di sini setelah kamu memberi izin.
                 </p>
-                <a className="settings-inline-link" href="#hubungkan">
-                  Hubungkan agent <ChevronRight size={15} />
-                </a>
               </div>
             ) : (
               <ul className="settings-connections">
@@ -471,12 +391,12 @@ export function Settings({ username }: { username: string }) {
                 ))}
               </ul>
             )}
-          </section>
+          </div>
 
-          <section id="token-pribadi" className="settings-tokens">
+          <div id="token-pribadi" className="settings-tokens">
             <div className="settings-section-title">
               <div>
-                <h2>Token untuk agent pilihanmu</h2>
+                <h2>Token pribadi</h2>
                 <p>Buat akses untuk client yang memakai token pribadi.</p>
               </div>
               <span className="token-lifetime">
@@ -602,7 +522,7 @@ export function Settings({ username }: { username: string }) {
               Token memberi akses ke seluruh proyek milikmu. Cabut saat agent
               sudah tidak digunakan.
             </p>
-          </section>
+          </div>
           <div
             className="settings-announcements"
             aria-live="polite"

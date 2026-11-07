@@ -11,14 +11,12 @@ import {
   Undo2,
   Redo2,
   Grid2X2,
-  X,
   Copy,
   Trash2,
   ArrowUp,
   ArrowDown,
   Settings2,
   FileText,
-  Monitor,
   CheckCheck,
   ExternalLink,
   GripVertical,
@@ -30,6 +28,7 @@ import {
   api,
   ApiError,
   imageSource,
+  dimensions,
   newProject,
   exampleProject,
   newSlide,
@@ -68,183 +67,85 @@ async function create(example = false) {
 export function Home() {
   const [demo, setDemo] = useState<Project>();
   const [index, setIndex] = useState(0);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => setDemo(exampleProject()), []);
-  async function start(example = false) {
-    setBusy(true);
-    try {
-      await create(example);
-    } catch {
-      setError(
-        "Proyek belum bisa dibuat. Masuk dan periksa koneksi internetmu.",
-      );
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    const p = exampleProject();
+    p.assets.conversation = "/example-conversation.jpg";
+    setDemo(p);
+  }, []);
   return (
-    <>
-      <Header active="home" />
-      <main>
-        <section className="hero">
-          <div className="hero-copy">
-            <h1>
-              Pengetahuanmu,<br />jadi cerita visual.
-            </h1>
-            <p>
-              Buat carousel edukasi yang mudah dipahami. Tulis, susun,
-              dan beri ruang untuk setiap gagasan.
-            </p>
-            <div className="hero-actions">
-              <Button onClick={() => start()} disabled={busy}>
-                Buat carousel <Plus size={19} />
-              </Button>
-              <a href="#cara-kerja" className="text-link">
-                Lihat cara kerjanya <ArrowRight size={16} />
-              </a>
-            </div>
-            <ErrorNote message={error} />
+    <main className="landing">
+      <div className="landing-hero">
+        <div className="landing-copy">
+          <div className="landing-brand">
+            <Logo href="/" />
           </div>
-          <div className="hero-display">
-            <div className="sample-stack">
-              <div className="hero-slide">
-                {demo && (
-                  <SlideArt
-                    project={demo}
-                    slide={demo.slides[index]}
-                    index={index}
-                  />
-                )}
-              </div>
-            </div>
-            <div className="sample-controls">
-              <div className="sample-description">
-                Contoh carousel
-                <span className="muted"> / Edukasi</span>
-              </div>
-              <div className="sample-pagination">
-                <IconButton
-                  label="Contoh sebelumnya"
-                  onClick={() => setIndex((index + 4) % 5)}
-                >
-                  <ChevronLeft size={17} />
-                </IconButton>
-                <span>
-                  {index + 1}
-                  <span className="muted"> / 5</span>
-                </span>
-                <IconButton
-                  label="Contoh berikutnya"
-                  onClick={() => setIndex((index + 1) % 5)}
-                >
-                  <ChevronRight size={17} />
-                </IconButton>
-              </div>
-            </div>
+          <h1>
+            Idemu layak
+            <br />
+            dibaca sampai
+            <br />
+            slide terakhir.
+          </h1>
+          <p>
+            Tulis ceritamu. Tambahkan gambar. Susun jadi carousel yang jelas dan
+            enak dibaca.
+          </p>
+          <a className="button" href="/proyek">
+            Buka dashboard
+          </a>
+          <p className="landing-note">
+            Teks atau teks + gambar. Sesederhana itu.
+          </p>
+        </div>
+        <div className="landing-preview">
+          <div className="hero-slide">
+            {demo && (
+              <SlideArt
+                project={demo}
+                slide={demo.slides[index]}
+                index={index}
+                publicImages
+              />
+            )}
           </div>
-        </section>
-        <div className="spec-strip">
-          <span>Dibuat untuk ide yang layak dibagikan.</span>
-          <div>
-            <span>
-              <Grid2X2 size={16} /> 5–20 slide
-            </span>
-            <span>
-              <Monitor size={16} /> 1080 × 1080 px
-            </span>
-            <span>
-              <Download size={16} /> PNG berkualitas tinggi
-            </span>
+          <div className="sample-controls">
+            <span>Contoh carousel</span>
+            <div className="sample-pagination">
+              <IconButton
+                label="Contoh sebelumnya"
+                onClick={() => setIndex((index + 4) % 5)}
+              >
+                <ChevronLeft size={18} />
+              </IconButton>
+              <span>{index + 1} / 5</span>
+              <IconButton
+                label="Contoh berikutnya"
+                onClick={() => setIndex((index + 1) % 5)}
+              >
+                <ChevronRight size={18} />
+              </IconButton>
+            </div>
           </div>
         </div>
-        <section className="workflow" id="cara-kerja">
-          <div className="section-intro">
-            <h2>
-              Fokus pada ceritanya.
-              <br />
-              Kami jaga komposisinya.
-            </h2>
-            <p>
-              Tak perlu mulai dari kanvas kosong.
-              <br />
-              Cukup satu gagasan, lalu biarkan berkembang.
-            </p>
-          </div>
-          <div className="steps">
-            <article>
-              <span className="step-number">01</span>
-              <FileText size={25} />
-              <h3>Tuangkan idemu</h3>
-              <p>
-                Tulis judul dan isi. Satu slide untuk satu gagasan, dengan alur
-                yang kamu tentukan.
-              </p>
-            </article>
-            <article>
-              <span className="step-number">02</span>
-              <Layers size={25} />
-              <h3>Temukan bentuknya</h3>
-              <p>
-                Pilih komposisi, tambahkan gambar, dan sesuaikan warna. Tetap
-                rapi, tetap terasa kamu.
-              </p>
-            </article>
-            <article>
-              <span className="step-number">03</span>
-              <Download size={25} />
-              <h3>Siap dibagikan</h3>
-              <p>
-                Tinjau rangkaiannya, unduh semua slide, lalu bagikan
-                pengetahuanmu ke Instagram.
-              </p>
-            </article>
-          </div>
-        </section>
-        <section className="layouts-section">
-          <div>
-            <h2>
-              Ruang untuk setiap
-              <br />
-              jenis penjelasan.
-            </h2>
-            <p>
-              Dari kalimat pembuka hingga pesan terakhir.
-              <br />
-              Enam komposisi yang saling melengkapi.
-            </p>
-            <Button secondary onClick={() => start(true)} disabled={busy}>
-              Coba contoh ini <ArrowRight size={17} />
-            </Button>
-          </div>
-          <div className="layout-miniatures">
-            {(["sampul", "daftar", "perbandingan"] as Layout[]).map((l, i) => (
-              <div className="miniature" key={l}>
-                <div className="layout-preview">
-                  {demo && <SlideArt project={demo} slide={demo.slides.find((slide) => slide.layout === l)!} index={i} />}
-                </div>
-                <span>{layouts[l]}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="closing">
-          <h2>
-            Ada ide yang ingin
-            <br />
-            kamu bagikan?
-          </h2>
-          <Button onClick={() => start()} disabled={busy}>
-            Buat carousel pertamamu <ArrowRight size={18} />
-          </Button>
-          <p>Simpan di cloud. Lanjutkan dari mana saja.</p>
-        </section>
-      </main>
-      <footer>
-        <Logo />
-        <p>Sedikit lebih sederhana. Jauh lebih bermakna.</p>
-        <span>Dibuat untuk berbagi pengetahuan.</span>
-      </footer>
-    </>
+      </div>
+      <div className="landing-how">
+        <h2>Dari tulisan ke carousel.</h2>
+        <div>
+          <p>
+            <strong>Tulis.</strong> Satu gagasan per slide, dengan paragraf dan
+            penekanan yang kamu tentukan.
+          </p>
+          <p>
+            <strong>Susun.</strong> Pilih teks atau teks + gambar. Lihat
+            komposisinya langsung saat mengedit.
+          </p>
+          <p>
+            <strong>Unduh.</strong> Dapatkan PNG 1080 × 1350, atau siapkan
+            posting ke Instagram.
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -287,9 +188,9 @@ export function Projects() {
         <div className="page-title">
           <div>
             <h1>
-              Proyek saya<span className="title-count">{projects.length}</span>
+              Dashboard<span className="title-count">{projects.length}</span>
             </h1>
-            <p>Gagasan yang sedang kamu bentuk, semuanya di sini.</p>
+            <p>Semua carousel yang sedang kamu kerjakan.</p>
           </div>
           <div className="action-row">
             <Button onClick={() => action(() => create())} disabled={busy}>
@@ -297,20 +198,28 @@ export function Projects() {
             </Button>
           </div>
         </div>
-        <div className="storage-notice">
-          <Monitor size={18} />
-          <p>
-            Tersimpan di cloud.{" "}
-            <span>
-              Buka proyek dari perangkat lain atau hubungkan agent melalui
-              Pengaturan.
-            </span>
-          </p>
-        </div>
-        <ErrorNote message={error} />
+        {error && (
+          <div className="dashboard-error">
+            <ErrorNote message={error} />
+            <button
+              className="text-link"
+              onClick={() => {
+                setLoading(true);
+                void refresh();
+              }}
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
         {loading ? (
-          <div className="empty-state">
-            <Loader2 className="spin" /> Membuka ruang kerjamu…
+          <div className="project-grid" aria-label="Memuat proyek">
+            {[0, 1, 2].map((i) => (
+              <div className="project-skeleton" key={i}>
+                <div />
+                <span />
+              </div>
+            ))}
           </div>
         ) : projects.length === 0 ? (
           <div className="empty-state">
@@ -346,35 +255,41 @@ export function Projects() {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
+                      timeZone: "Asia/Jakarta",
                     })}
                   </p>
-                  <div className="project-actions">
-                    <IconButton
-                      label={`Duplikasi ${p.title}`}
-                      disabled={busy}
-                      onClick={() =>
-                        action(async () => {
-                          await saveProject({
-                            ...structuredClone(p),
-                            id: uid(),
-                            revision: undefined,
-                            title: p.title + " (salinan)",
-                            updated: Date.now(),
-                          });
-                          await refresh();
-                        })
-                      }
-                    >
-                      <Copy size={16} />
-                    </IconButton>
-                    <IconButton
-                      label={`Hapus ${p.title}`}
-                      disabled={busy}
-                      onClick={() => setPendingDelete(p)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </div>
+                  <details className="project-actions">
+                    <summary aria-label={`Tindakan ${p.title}`}>•••</summary>
+                    <div className="project-action-menu">
+                      <IconButton
+                        label={`Duplikasi ${p.title}`}
+                        disabled={busy}
+                        onClick={() =>
+                          action(async () => {
+                            await saveProject({
+                              ...structuredClone(p),
+                              id: uid(),
+                              revision: undefined,
+                              title: p.title + " (salinan)",
+                              updated: Date.now(),
+                            });
+                            await refresh();
+                          })
+                        }
+                      >
+                        <Copy size={16} />
+                        <span>Duplikasi</span>
+                      </IconButton>
+                      <IconButton
+                        label={`Hapus ${p.title}`}
+                        disabled={busy}
+                        onClick={() => setPendingDelete(p)}
+                      >
+                        <Trash2 size={16} />
+                        <span>Hapus</span>
+                      </IconButton>
+                    </div>
+                  </details>
                 </div>
               </article>
             ))}
@@ -432,6 +347,7 @@ export function Editor() {
   const past = useRef<Project[]>([]),
     future = useRef<Project[]>([]);
   const [imageUrl, setImageUrl] = useState("");
+  const textInput = useRef<HTMLTextAreaElement>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const conflictRef = useRef(false);
@@ -770,20 +686,19 @@ export function Editor() {
     }
   }
   function split() {
-    if (p.slides.length >= 20 || s.body.length < 2) return;
-    const middle = Math.floor(s.body.length / 2);
-    let at = s.body.lastIndexOf("\n", middle);
-    if (at < 1) at = s.body.lastIndexOf(" ", middle);
+    if (p.slides.length >= 20 || s.text.length < 2) return;
+    const middle = Math.floor(s.text.length / 2);
+    let at = s.text.lastIndexOf("\n", middle);
+    if (at < 1) at = s.text.lastIndexOf(" ", middle);
     if (at < 1) at = middle;
     change((p) => {
       const old = p.slides[active];
       const next = {
         ...structuredClone(old),
         id: uid(),
-        title: old.title ? old.title + " (lanjutan)" : "",
-        body: old.body.slice(at),
+        text: old.text.slice(at),
       };
-      old.body = old.body.slice(0, at);
+      old.text = old.text.slice(0, at);
       p.slides.splice(active + 1, 0, next);
     });
   }
@@ -795,7 +710,7 @@ export function Editor() {
           <span className="header-divider" />
           <a href="/proyek" className="back-projects" title="Kembali ke proyek">
             <ChevronLeft size={17} />
-            <span>Proyek saya</span>
+            <span>Dashboard</span>
           </a>
         </div>
         <div className="project-title-edit">
@@ -943,7 +858,7 @@ export function Editor() {
                 </span>
                 <button
                   className="thumbnail"
-                  aria-label={`Edit slide ${i + 1}: ${slide.title || layouts[slide.layout]}`}
+                  aria-label={`Edit slide ${i + 1}: ${slide.text.slice(0, 70) || layouts[slide.layout]}`}
                   aria-current={i === active ? "true" : undefined}
                   onClick={() => {
                     setActive(i);
@@ -977,10 +892,18 @@ export function Editor() {
         >
           <div className="canvas-topline">
             <span>{layouts[s.layout]}</span>
-            <span>1080 × 1080 px</span>
+            <span>1080 × {dimensions(p).height} px</span>
           </div>
           <div className="canvas-wrap">
-            <div className="main-canvas">
+            <div
+              className="main-canvas"
+              style={
+                {
+                  "--slide-ratio": `1080 / ${dimensions(p).height}`,
+                  "--canvas-ratio": 1080 / dimensions(p).height,
+                } as React.CSSProperties
+              }
+            >
               <SlideArt project={p} slide={s} index={active} guides />
             </div>
           </div>
@@ -1092,59 +1015,57 @@ export function Editor() {
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="slide-title">
-                    Judul <span>Pesan utamamu</span>
-                  </label>
-                  <textarea
-                    id="slide-title"
-                    rows={3}
-                    placeholder="Satu judul yang mengundang rasa ingin tahu"
-                    value={s.title}
-                    onChange={(e) => updateSlide({ title: e.target.value })}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="slide-body">
-                    {s.layout === "daftar" || s.layout === "langkah"
-                      ? "Butir isi"
-                      : s.layout === "perbandingan"
-                        ? "Sisi kiri"
-                        : "Isi slide"}
-                    <span>
-                      {s.layout === "daftar" || s.layout === "langkah"
-                        ? "Satu butir per baris"
-                        : "Singkat dan mudah dipahami"}
-                    </span>
-                  </label>
-                  <textarea
-                    id="slide-body"
-                    rows={5}
-                    placeholder="Tuliskan penjelasanmu di sini…"
-                    value={s.body}
-                    onChange={(e) => updateSlide({ body: e.target.value })}
-                  />
-                  <span className="field-count">{s.body.length} karakter</span>
-                </div>
-                {(s.layout === "perbandingan" || s.layout === "penutup") && (
-                  <div className="field">
-                    <label htmlFor="secondary">
-                      {s.layout === "perbandingan"
-                        ? "Sisi kanan"
-                        : "Ajakan penutup"}
-                    </label>
-                    <textarea
-                      id="secondary"
-                      rows={3}
-                      value={s.secondary}
-                      onChange={(e) =>
-                        updateSlide({ secondary: e.target.value })
-                      }
-                    />
+                  <div className="text-field-heading">
+                    <label htmlFor="slide-text">Teks slide</label>
+                    <button
+                      className="bold-tool"
+                      type="button"
+                      aria-label="Tebalkan teks terpilih"
+                      onClick={() => {
+                        const input = textInput.current;
+                        if (!input) return;
+                        const start = input.selectionStart,
+                          end = input.selectionEnd;
+                        const selected =
+                          s.text.slice(start, end) || "teks tebal";
+                        updateSlide({
+                          text:
+                            s.text.slice(0, start) +
+                            "**" +
+                            selected +
+                            "**" +
+                            s.text.slice(end),
+                        });
+                        requestAnimationFrame(() => {
+                          input.focus();
+                          input.setSelectionRange(
+                            start + 2,
+                            start + 2 + selected.length,
+                          );
+                        });
+                      }}
+                    >
+                      <strong>B</strong>
+                      <span>Tebal</span>
+                    </button>
                   </div>
-                )}
+                  <textarea
+                    ref={textInput}
+                    id="slide-text"
+                    rows={11}
+                    placeholder="Tulis ceritamu di sini…"
+                    value={s.text}
+                    onChange={(e) => updateSlide({ text: e.target.value })}
+                  />
+                  <p className="field-help">
+                    Pisahkan paragraf dengan baris kosong. Gunakan **teks
+                    tebal** untuk penekanan.
+                  </p>
+                  <span className="field-count">{s.text.length} karakter</span>
+                </div>
                 {s.layout === "gambar" && (
                   <div className="field">
-                    <label htmlFor="image-url">URL gambar persegi</label>
+                    <label htmlFor="image-url">URL gambar</label>
                     <div className="image-url-actions">
                       <input
                         id="image-url"
@@ -1166,8 +1087,8 @@ export function Editor() {
                       </button>
                     </div>
                     <p className="field-help">
-                      Wajib 1:1. PNG, JPEG, WebP, maksimal 12 MB. Gunakan link
-                      gambar publik.
+                      Portrait, landscape, atau persegi. PNG, JPEG, WebP,
+                      maksimal 12 MB. Gunakan link gambar publik.
                     </p>
                     {s.image && (
                       <>
@@ -1184,6 +1105,33 @@ export function Editor() {
                         <p className="field-help">
                           {s.imageWidth} × {s.imageHeight} piksel
                         </p>
+                        <Range
+                          label="Posisi horizontal"
+                          min={0}
+                          max={100}
+                          value={s.x}
+                          onChange={(v) => updateSlide({ x: v })}
+                        />
+                        <Range
+                          label="Posisi vertikal"
+                          min={0}
+                          max={100}
+                          value={s.y}
+                          onChange={(v) => updateSlide({ y: v })}
+                        />
+                        <Range
+                          label="Zoom gambar (%)"
+                          min={100}
+                          max={300}
+                          value={Math.round(s.zoom * 100)}
+                          onChange={(v) => updateSlide({ zoom: v / 100 })}
+                        />
+                        <button
+                          className="text-link"
+                          onClick={() => updateSlide({ x: 50, y: 50, zoom: 1 })}
+                        >
+                          Reset posisi gambar
+                        </button>
                         <button
                           className="danger-link"
                           onClick={() =>
@@ -1245,12 +1193,16 @@ export function Editor() {
                   </select>
                 </div>
                 <Range
-                  label="Ukuran teks"
-                  min={22}
-                  max={46}
+                  label="Ukuran minimum teks"
+                  min={32}
+                  max={80}
                   value={style.size}
                   onChange={(v) => updateStyle({ size: v })}
                 />
+                <p className="field-help">
+                  Teks pendek diperbesar otomatis hingga 80 px agar komposisinya
+                  lebih padat.
+                </p>
                 <div className="field">
                   <label htmlFor="alignment">Perataan teks</label>
                   <select
@@ -1336,7 +1288,7 @@ export function Editor() {
                 ))}
                 {warnings.some((w) => w.startsWith("Teks")) && (
                   <button
-                    disabled={p.slides.length >= 20 || s.body.length < 2}
+                    disabled={p.slides.length >= 20 || s.text.length < 2}
                     onClick={split}
                   >
                     Bagi isi ke slide baru <Plus size={14} />
@@ -1395,7 +1347,7 @@ export function Editor() {
           }}
         >
           <p className="modal-description">
-            {p.slides.length} slide persegi, siap untuk langkah berikutnya.
+            {p.slides.length} slide, siap untuk langkah berikutnya.
           </p>
           {warningCount > 0 && (
             <div className="warnings">
@@ -1446,7 +1398,7 @@ export function Editor() {
                   ? `Menyiapkan ${progress}/${p.slides.length} slide…`
                   : "Unduh semua slide"}
               </strong>
-              <small>ZIP berisi PNG · 1080 × 1080 px</small>
+              <small>ZIP berisi PNG · 1080 × {dimensions(p).height} px</small>
             </span>
             <Download size={18} />
           </button>

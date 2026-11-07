@@ -11,7 +11,6 @@ import {
   ORIGIN,
   bearerUser,
   hash,
-  now,
   passwordHash,
   sessionUser,
 } from "./core";
@@ -197,6 +196,72 @@ test("cloud CRUD isolates owners and rejects stale update/delete revisions", asy
     404,
   );
 });
+test("REST normalizes stored v2 documents on read/list and saves v3 without losing content or revisions", async () => {
+  const cookie = await account("legacy-reader");
+  const created = await read(
+    await apiHandler(
+      db,
+      request("/api/projects", "POST", newProject(), cookie),
+    ),
+  );
+  const legacy = {
+    ...created,
+    version: 2,
+    slides: created.slides.map((slide: any, i: number) => {
+      const { text, ...rest } = slide;
+      return {
+        ...rest,
+        layout: ["sampul", "daftar", "langkah", "perbandingan", "penutup"][i],
+        title: "Judul",
+        body: "Isi",
+        secondary: "Tambahan",
+      };
+    }),
+  };
+  delete legacy.format;
+  await db
+    .prepare("UPDATE projects SET document=? WHERE id=?")
+    .bind(JSON.stringify(legacy), created.id)
+    .run();
+  const loaded = await read(
+    await apiHandler(
+      db,
+      request(`/api/projects/${created.id}`, "GET", undefined, cookie),
+    ),
+  );
+  assert.equal(loaded.version, 3);
+  assert.equal(loaded.format, "square");
+  assert.equal(loaded.revision, created.revision);
+  assert.equal(loaded.slides[0].text, "Judul\n\nIsi\n\nTambahan");
+  const listed = await read(
+    await apiHandler(db, request("/api/projects", "GET", undefined, cookie)),
+  );
+  assert.deepEqual(listed[0], loaded);
+  const saved = await read(
+    await apiHandler(
+      db,
+      request(`/api/projects/${created.id}`, "PUT", legacy, cookie),
+    ),
+  );
+  assert.equal(saved.version, 3);
+  assert.equal(saved.revision, 2);
+  assert.equal(saved.slides[0].id, created.slides[0].id);
+  const row = await db
+    .prepare("SELECT document FROM projects WHERE id=?")
+    .bind(created.id)
+    .first<{ document: string }>();
+  assert.equal(JSON.parse(row!.document).version, 3);
+  assert.equal(
+    (
+      await apiHandler(
+        db,
+        request(`/api/projects/${created.id}`, "PUT", legacy, cookie),
+      )
+    ).status,
+    409,
+  );
+});
+
 test("personal tokens are hashed, expire, and are revocable", async () => {
   const cookie = await account("tokens");
   const created = await read(
@@ -437,6 +502,34 @@ test("MCP SDK initializes, advertises schemas and executes all five tools with o
   assert.match(stale.content[0].text, /409/);
   assert.ok(!(await call("delete_project", { id: p.id, revision: 2 })).isError);
   assert.equal((await call("get_project", { id: p.id })).isError, true);
+  const legacy = await call("create_project", {
+    project: {
+      title: "Legacy MCP",
+      slides: newProject().slides.map((s) => ({
+        ...s,
+        layout: "sampul",
+        title: "Judul lama",
+        body: "Isi lama",
+        secondary: "Penutup lama",
+      })),
+    },
+  });
+  assert.ok(!legacy.isError, JSON.stringify(legacy));
+  const legacyProject = JSON.parse(legacy.content[0].text);
+  assert.equal(legacyProject.version, 3);
+  assert.equal(legacyProject.format, "square");
+  assert.equal(
+    legacyProject.slides[0].text,
+    "Judul lama\n\nIsi lama\n\nPenutup lama",
+  );
+  assert.ok(
+    !(
+      await call("delete_project", {
+        id: legacyProject.id,
+        revision: legacyProject.revision,
+      })
+    ).isError,
+  );
   const unauthorized = await mcpHandler(db, new Request(`${ORIGIN}/mcp`));
   assert.equal(unauthorized.status, 401);
   assert.match(
@@ -444,7 +537,7 @@ test("MCP SDK initializes, advertises schemas and executes all five tools with o
     /resource_metadata/,
   );
 });
-test("image validation blocks private addresses, validates redirects, format, size and exact square dimensions", async () => {
+test("image validation blocks private addresses, validates redirects, format, size and arbitrary image dimensions", async () => {
   for (const host of [
     "127.0.0.1",
     "10.1.2.3",
@@ -488,7 +581,11 @@ test("image validation blocks private addresses, validates redirects, format, si
     const wide = Buffer.from(png);
     wide.writeUInt32BE(2, 16);
     mock(() => new Response(wide));
-    await assert.rejects(loadImage("https://example.org/wide.png"), /2 × 1/);
+    assert.equal((await loadImage("https://example.org/wide.png")).width, 2);
+    const tall = Buffer.from(png);
+    tall.writeUInt32BE(16385, 20);
+    mock(() => new Response(tall));
+    await assert.rejects(loadImage("https://example.org/tall.png"), /16384/);
     mock(() => new Response("not an image"));
     await assert.rejects(loadImage("https://example.org/page"), /valid/);
     mock(
