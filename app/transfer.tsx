@@ -3,7 +3,9 @@ import JSZip from "jszip";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SlideArt } from "./slide";
 import { uid, validateProject, type Project } from "./model";
-const fontFiles = {
+// Workers also import this module during SSR. Resolve font URLs only when
+// exporting in the browser, where import.meta.url is a valid asset base.
+const getFontFiles = () => ({
   Manrope: [
     new URL(
       "../node_modules/@fontsource/manrope/files/manrope-latin-400-normal.woff2",
@@ -34,7 +36,7 @@ const fontFiles = {
       import.meta.url,
     ).href,
   ],
-};
+});
 export function dataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -109,6 +111,7 @@ export async function importProject(file: File): Promise<Project> {
 }
 export async function exportPNG(p: Project, progress: (n: number) => void) {
   await document.fonts.ready;
+  const fontFiles = getFontFiles();
   let fonts = "";
   for (const family of new Set([
     p.style.font,

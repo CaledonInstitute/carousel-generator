@@ -17,9 +17,31 @@ Buka URL lokal yang dicetak Vite. Proyek memakai React, TypeScript, Vinext, dan 
 npm test
 npx tsc --noEmit
 npm run build
+npm run test:workers
 ```
 
-Pengujian mencakup validasi impor, enam layout SVG, peringatan teks, IndexedDB, dan round-trip file proyek dengan gambar. Ekspor PNG melalui canvas serta interaksi responsif perlu diverifikasi di browser.
+Pengujian mencakup validasi impor, enam layout SVG, peringatan teks, IndexedDB, round-trip file proyek dengan gambar, serta alur ekspor PNG dengan campuran tiga font (canvas dimock). `test:workers` membangun ulang produksi, menjalankan preview Cloudflare dalam workerd, lalu memeriksa HTTP 200 tanpa halaman error untuk seluruh rute halaman, akses ulang, loading editor, aset halaman, dan enam berkas font ekspor. Server preview dihentikan otomatis setelah pemeriksaan.
+
+## Preview dan deploy Cloudflare Workers
+
+Gunakan Node.js 22 atau lebih baru dan `npm ci` untuk memasang versi dari lockfile.
+
+```sh
+npm run preview
+```
+
+Perintah ini membangun produksi lalu menjalankan preview Workers lokal. Untuk build yang sudah tersedia, jalankan `npm run start`. Verifikasi di browser: buka langsung dan reload `/`, `/proyek`, `/panduan`, serta `/editor/<id>`; editor harus menampilkan “Membuka studio…” saat membaca IndexedDB, lalu proyek atau pesan proyek tidak ditemukan. Buat proyek dengan font Manrope, DM Sans, dan IBM Plex Sans pada slide berbeda, ekspor ZIP PNG, dan periksa gambar 1080 × 1080 serta fontnya.
+
+URL font ekspor dibuat hanya ketika ekspor PNG dipanggil di browser. Jangan membuat `new URL(..., import.meta.url)` untuk font pada tingkat modul: modul ini juga diimpor saat SSR di Workers.
+
+Setelah seluruh pemeriksaan lulus, autentikasi dan deploy ke akun Cloudflare yang dituju:
+
+```sh
+npx cf auth login
+npm run deploy
+```
+
+Konfigurasi Worker bersumber dari `cloudflare.config.ts`. Pilih akun lewat `CLOUDFLARE_ACCOUNT_ID`; di CI gunakan `CLOUDFLARE_API_TOKEN`. Deployment memakai integrasi Vinext yang membangun dan mengunggah output Workers. Setelah deploy, ulangi pemeriksaan akses langsung dan reload di `https://carousel.hengker.tech/`, termasuk semua rute di atas; respons dokumen harus HTTP 200 tanpa kilatan halaman error. Proyek tetap tersimpan di browser pada origin tersebut.
 
 ## Data dan ekspor
 

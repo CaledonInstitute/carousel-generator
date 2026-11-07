@@ -192,15 +192,21 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
   };
   let result: Blob | undefined;
   let drawn = 0;
+  const fontRequests: string[] = [];
+  const renderedSVGs: string[] = [];
   const canvases: { width: number; height: number }[] = [];
   Object.assign(globalThis, {
     Image: class {
       src = "";
       async decode() {
         assert.ok(this.src.startsWith("blob:"));
+        renderedSVGs.push(await resolveObjectURL(this.src)!.text());
       }
     },
-    fetch: async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
+    fetch: async (url: string) => {
+      fontRequests.push(url);
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    },
     document: {
       fonts: { ready: Promise.resolve() },
       createElement: (tag: string) => {
@@ -231,8 +237,22 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
   });
   try {
     const p = exampleProject();
+    p.slides[1].style.font = "DM Sans";
+    p.slides[2].style.font = "IBM Plex Sans";
     const progress: number[] = [];
     await exportPNG(p, (n) => progress.push(n));
+    assert.equal(fontRequests.length, 6);
+    for (const family of ["manrope", "dm-sans", "ibm-plex-sans"]) {
+      for (const weight of [400, 700]) {
+        assert.ok(fontRequests.some((url) => url.endsWith(`${family}-latin-${weight}-normal.woff2`)));
+      }
+    }
+    for (const svg of renderedSVGs) {
+      for (const family of ["Manrope", "DM Sans", "IBM Plex Sans"]) {
+        assert.ok(svg.includes(`font-family:'${family}'`));
+      }
+      assert.ok(svg.includes("data:font/woff2;base64,") || svg.includes("data:;base64,"));
+    }
     assert.equal(drawn, 5);
     assert.deepEqual(progress, [1, 2, 3, 4, 5]);
     assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1080));

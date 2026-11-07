@@ -38,6 +38,7 @@
 		"deploy": "vinext-cloudflare deploy",
 		"preview": "npm run build && npm run start --",
 		"cf-typegen": "cf workers types",
-		"test": "tsx --test app/studio.test.tsx"
+		"test": "tsx --test app/studio.test.tsx",
+		"test:workers": "npm run build && node scripts/smoke-workers.mjs"
 	}
 }
