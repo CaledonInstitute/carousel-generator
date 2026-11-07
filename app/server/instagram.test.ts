@@ -471,7 +471,7 @@ test("Instagram jobs validate caption, slide count, revisions, ownership and ide
       key: crypto.randomUUID(),
       revision: saved.revision,
     });
-    assert.equal(res.status, count === 10 ? 201 : 400);
+    assert.equal(res.status, 201, await res.clone().text());
   }
   assert.deepEqual(
     JSON.parse((await jobRow(first.id))!.snapshot),

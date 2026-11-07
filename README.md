@@ -72,7 +72,7 @@ Implementasi tidak menjalankan deployment produksi. Verifikasi koneksi Claude.ai
 
 ## Instagram (pilot)
 
-Posting carousel langsung tersedia sebagai fitur opsional untuk satu pengguna dan satu akun profesional Instagram. Fitur nonaktif secara default; tidak ada kredensial Meta di repository. Pengaturan menyediakan koneksi Instagram dan editor menyediakan preview, caption, serta posting 5–10 slide. JPEG sementara dan progres disimpan di D1; proses dilanjutkan melalui permintaan dari dialog editor. Biarkan dialog terbuka sampai selesai, atau buka kembali untuk melanjutkan. Ikuti [panduan konfigurasi dan aktivasi](docs/instagram.md) sebelum mengaktifkannya. ZIP PNG tetap tersedia untuk proyek hingga 20 slide.
+Posting carousel langsung tersedia sebagai fitur opsional untuk satu pengguna dan satu akun profesional Instagram. Fitur nonaktif secara default; tidak ada kredensial Meta di repository. Pengaturan menyediakan koneksi Instagram dan editor menyediakan preview, caption, serta posting 5–20 slide. JPEG sementara dan progres disimpan di D1; proses dilanjutkan melalui permintaan dari dialog editor. Biarkan dialog terbuka sampai selesai, atau buka kembali untuk melanjutkan. Ikuti [panduan konfigurasi dan aktivasi](docs/instagram.md) sebelum mengaktifkannya. ZIP PNG tetap tersedia untuk proyek hingga 20 slide.
 
 Integrasi ini tidak memerlukan R2, Cloudflare Queue, worker terpisah, atau cron. Jalankan seluruh migrasi D1, termasuk `0002_instagram.sql` dan `0003_instagram_d1_media.sql`, sebelum mengaktifkan Instagram. URL JPEG berlaku 48 jam sejak persiapan dibuat; data kedaluwarsa dibersihkan bertahap saat fitur diakses kembali. Refresh token juga dilakukan saat fitur digunakan, sehingga akun yang lama tidak digunakan mungkin perlu dihubungkan ulang.
 

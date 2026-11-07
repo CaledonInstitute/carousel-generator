@@ -137,7 +137,7 @@ export function InstagramSettings() {
           </p>
           <p className="muted">
             Gunakan akun Business atau Creator. Versi awal mendukung satu akun
-            dan carousel 5–10 slide. Saat menghubungkan, pilih portfolio bisnis
+            dan carousel 5–20 slide. Saat menghubungkan, pilih portfolio bisnis
             dan bagikan satu akun Instagram tujuan posting. Izin publikasi
             digunakan untuk menerbitkan carousel.
           </p>
@@ -299,8 +299,8 @@ export function InstagramPublisher({
     setProgress("Menyimpan proyek…");
     try {
       const saved = await save();
-      if (saved.slides.length < 5 || saved.slides.length > 10)
-        throw Error("Posting Instagram mendukung 5–10 slide.");
+      if (saved.slides.length < 5 || saved.slides.length > 20)
+        throw Error("Posting Instagram mendukung 5–20 slide.");
       if (
         !request.current ||
         request.current.revision !== saved.revision ||
@@ -429,17 +429,17 @@ export function InstagramPublisher({
                     </span>
                   </>
                 )}
-                {project.slides.length > 10 && (
+                {project.slides.length > 20 && (
                   <p className="error-note">
                     Proyek memiliki {project.slides.length} slide. Kurangi
-                    menjadi maksimal 10 slide atau unduh proyek.
+                    menjadi maksimal 20 slide atau unduh proyek.
                   </p>
                 )}
                 {!job && (
                   <button
                     className="button"
                     disabled={
-                      busy || count > 2200 || project.slides.length > 10
+                      busy || count > 2200 || project.slides.length > 20
                     }
                     onClick={() => void prepare()}
                   >

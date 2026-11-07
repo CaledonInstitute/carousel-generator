@@ -336,10 +336,10 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
             409,
             "Proyek berubah. Simpan dan periksa versi terbaru sebelum posting.",
           );
-        if (project.slides.length < 5 || project.slides.length > 10)
+        if (project.slides.length < 5 || project.slides.length > 20)
           fail(
             400,
-            "Posting Instagram mendukung 5–10 slide. Kurangi slide atau unduh proyek.",
+            "Posting Instagram mendukung 5–20 slide. Kurangi slide atau unduh proyek.",
           );
         await refreshConnections(env);
         await cleanExpiredMedia(env);
