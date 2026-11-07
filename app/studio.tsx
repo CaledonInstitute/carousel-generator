@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  Menu,
+  LogOut,
   Plus,
   Layers,
   ChevronLeft,
@@ -65,47 +67,148 @@ function Logo({ compact = false }: { compact?: boolean }) {
 }
 export function Header({ active = "" }: { active?: string }) {
   const [user, setUser] = useState<{ username: string }>();
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [error, setError] = useState("");
+  const header = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/auth/me")
       .then(async (r) => {
-        if (r.ok) setUser((await r.json()) as { username: string });
+        if (r.ok) {
+          const value = (await r.json()) as { username: string };
+          if (!cancelled) setUser(value);
+        }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        toggle.current?.focus();
+      }
+    };
+    const outside = (event: PointerEvent) => {
+      if (!header.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const desktop = window.matchMedia("(min-width: 901px)");
+    const resize = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("pointerdown", outside);
+    desktop.addEventListener("change", resize);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("pointerdown", outside);
+      desktop.removeEventListener("change", resize);
+    };
+  }, [open]);
+  async function logout() {
+    setLoggingOut(true);
+    setError("");
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+      location.assign("/masuk");
+    } catch (e) {
+      setError((e as Error).message);
+      setLoggingOut(false);
+    }
+  }
   return (
-    <header className="site-header">
+    <header ref={header} className="site-header">
       <Logo />
-      <nav>
-        <a className={active === "home" ? "active" : ""} href="/">
-          Beranda
-        </a>
-        <a className={active === "projects" ? "active" : ""} href="/proyek">
-          Proyek saya
-        </a>
-        <a className={active === "settings" ? "active" : ""} href="/pengaturan">
-          Pengaturan
-        </a>
-      </nav>
-      <div className="account-nav">
-        {user ? (
-          <>
-            <span className="username">{user.username}</span>
-            <button
-              onClick={async () => {
-                await api("/api/auth/logout", { method: "POST" });
-                location.assign("/masuk");
-              }}
+      <button
+        ref={toggle}
+        type="button"
+        className="nav-toggle"
+        aria-expanded={open}
+        aria-controls="site-navigation"
+        aria-label={open ? "Tutup menu navigasi" : "Buka menu navigasi"}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? <X size={21} /> : <Menu size={21} />}
+        <span>Menu</span>
+      </button>
+      <div
+        id="site-navigation"
+        className={`site-navigation${open ? " is-open" : ""}`}
+      >
+        <nav aria-label="Navigasi utama">
+          {[
+            { key: "home", href: "/", label: "Beranda" },
+            { key: "projects", href: "/proyek", label: "Proyek saya" },
+            { key: "settings", href: "/pengaturan", label: "Pengaturan" },
+          ].map((item) => (
+            <a
+              key={item.key}
+              className={active === item.key ? "active" : undefined}
+              aria-current={active === item.key ? "page" : undefined}
+              href={item.href}
+              onClick={() => setOpen(false)}
             >
-              Keluar
-            </button>
-          </>
-        ) : (
-          <a href="/masuk">Masuk</a>
-        )}
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="account-nav" aria-busy={loading}>
+          {loading ? (
+            <span className="account-loading">
+              <span className="sr-only">Memuat akun…</span>
+            </span>
+          ) : user ? (
+            <>
+              <a
+                className="nav-profile"
+                href="/pengaturan"
+                title={`Pengaturan akun ${user.username}`}
+              >
+                <span className="nav-avatar" aria-hidden="true">
+                  {user.username.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="nav-username">{user.username}</span>
+              </a>
+              <button
+                className="nav-logout"
+                type="button"
+                disabled={loggingOut}
+                onClick={() => void logout()}
+              >
+                <LogOut size={16} />
+                <span>{loggingOut ? "Keluar…" : "Keluar"}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <a className="nav-login" href="/masuk">
+                Masuk
+              </a>
+              <a className="nav-register" href="/daftar">
+                Daftar
+              </a>
+            </>
+          )}
+        </div>
       </div>
+      {error && (
+        <p className="nav-error" role="alert">
+          {error}
+        </p>
+      )}
     </header>
   );
 }
+
 function Button({
   children,
   onClick,
