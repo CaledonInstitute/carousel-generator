@@ -4,7 +4,12 @@
 	"private": true,
 	"packageManager": "npm",
 	"dependencies": {
+		"@fontsource/dm-sans": "^5.3.0",
+		"@fontsource/ibm-plex-sans": "^5.3.0",
+		"@fontsource/manrope": "^5.3.0",
 		"@vinext/cloudflare": "latest",
+		"jszip": "^3.10.2",
+		"lucide-react": "^1.70.0",
 		"react": "latest",
 		"react-dom": "latest",
 		"react-server-dom-webpack": "latest",
@@ -19,7 +24,9 @@
 		"@vitejs/plugin-react": "latest",
 		"@vitejs/plugin-rsc": "latest",
 		"cf": "^1.0.0-beta.28",
+		"fake-indexeddb": "^6.2.7",
 		"tailwindcss": "latest",
+		"tsx": "^4.23.15",
 		"typescript": "latest",
 		"vite": "8.3.0"
 	},
@@ -30,6 +37,7 @@
 		"start": "vite preview",
 		"deploy": "vinext-cloudflare deploy",
 		"preview": "npm run build && npm run start --",
-		"cf-typegen": "cf workers types"
+		"cf-typegen": "cf workers types",
+		"test": "tsx --test app/studio.test.tsx"
 	}
 }
