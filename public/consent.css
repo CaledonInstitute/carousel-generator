@@ -1,20 +1,20 @@
 @font-face {
-  font-family: Manrope;
-  src: url("/fonts/manrope-400.woff2") format("woff2");
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/ibm-plex-sans-400.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
-  font-family: Manrope;
-  src: url("/fonts/manrope-600.woff2") format("woff2");
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/ibm-plex-sans-600.woff2") format("woff2");
   font-style: normal;
   font-weight: 600;
   font-display: swap;
 }
 @font-face {
-  font-family: Manrope;
-  src: url("/fonts/manrope-700.woff2") format("woff2");
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/ibm-plex-sans-700.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -23,14 +23,14 @@
   box-sizing: border-box;
 }
 body {
-  font-family: Manrope, system-ui, sans-serif;
-  color: #17191d;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  color: #202936;
   background: #fff;
   margin: 0;
   font-synthesis: none;
 }
 a {
-  color: #2855d9;
+  color: #315cdb;
   text-decoration: none;
 }
 button {
@@ -56,14 +56,14 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-bottom: 1px solid #e7e9ed;
+  border-bottom: 1px solid #dce3ec;
 }
 .consent-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #17191d;
-  font-size: 23px;
+  color: #202936;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -1px;
 }
@@ -71,34 +71,33 @@ p {
   font-weight: 400;
 }
 .brand-dot {
-  color: #2855d9;
+  color: #315cdb;
 }
 .brand-mark {
   position: relative;
   display: block;
-  width: 28px;
-  height: 30px;
+  width: 31px;
+  height: 36px;
 }
 .brand-mark i {
   position: absolute;
-  width: 18px;
-  height: 23px;
-  top: 1px;
+  width: 24px;
+  height: 29px;
+  top: 0;
   left: 0;
-  border: 2px solid #2855d9;
-  border-radius: 3px;
+  border: 2px solid #315cdb;
+  border-radius: 4px;
   background: #fff;
 }
 .brand-mark i:last-child {
   left: 7px;
   top: 7px;
-  background: #2855d9;
-  border: 3px solid #fff;
-  outline: 1.5px solid #2855d9;
+  background: #fff;
 }
+.brand-mark i:first-child { opacity: .4; }
 .consent-header-note {
-  font-size: 12px;
-  color: #626974;
+  font-size: 13px;
+  color: #5d6878;
 }
 .consent-shell {
   max-width: 600px;
@@ -123,10 +122,10 @@ p {
   flex-shrink: 0;
 }
 .bridge-app {
-  background: #2855d9;
+  background: #315cdb;
 }
 .bridge-agent {
-  color: #2855d9;
+  color: #315cdb;
   background: #edf2ff;
   border: 1px solid #dbe4fb;
   font-size: 27px;
@@ -150,14 +149,14 @@ p {
 .bridge-slides i:last-child {
   left: 9px;
   top: 8px;
-  background: #2855d9;
+  background: #315cdb;
 }
 .bridge-line {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 1;
-  color: #2855d9;
+  color: #315cdb;
 }
 .bridge-line::before,
 .bridge-line::after {
@@ -167,7 +166,7 @@ p {
   flex: 1;
 }
 .consent-intro {
-  text-align: center;
+  text-align: left;
 }
 .consent-intro h1 {
   font-size: clamp(25px, 4vw, 32px);
@@ -179,7 +178,7 @@ p {
 .consent-intro > p {
   font-size: 13px;
   line-height: 1.85;
-  color: #626974;
+  color: #5d6878;
   margin-top: 14px;
 }
 .consent-account {
@@ -187,7 +186,7 @@ p {
   align-items: center;
   gap: 12px;
   padding: 17px 18px;
-  background: #f5f7fb;
+  background: #f3f6fa;
   border-radius: 8px;
   margin-top: 28px;
 }
@@ -199,7 +198,7 @@ p {
   place-items: center;
   border-radius: 50%;
   background: #e3ebff;
-  color: #2855d9;
+  color: #315cdb;
   font-weight: 700;
   font-size: 14px;
 }
@@ -209,8 +208,8 @@ p {
 }
 .consent-account div > span {
   display: block;
-  color: #626974;
-  font-size: 10px;
+  color: #5d6878;
+  font-size: 13px;
   margin-bottom: 4px;
 }
 .consent-account strong {
@@ -220,7 +219,7 @@ p {
   overflow-wrap: anywhere;
 }
 .consent-account > a {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   padding: 10px 0 10px 6px;
@@ -234,9 +233,9 @@ p {
   letter-spacing: -0.2px;
 }
 .consent-permissions > p {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.8;
-  color: #626974;
+  color: #5d6878;
   margin-top: 7px;
   overflow-wrap: anywhere;
 }
@@ -259,7 +258,7 @@ p {
 .permission-check {
   display: grid;
   place-items: center;
-  color: #2855d9;
+  color: #315cdb;
   background: #edf2ff;
   width: 26px;
   height: 26px;
@@ -267,13 +266,13 @@ p {
   flex-shrink: 0;
 }
 .consent-permissions h3 {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.8;
 }
 .consent-permissions li p {
-  font-size: 11px;
-  color: #626974;
+  font-size: 13px;
+  color: #5d6878;
   line-height: 1.8;
   margin-top: 2px;
 }
@@ -281,18 +280,18 @@ p {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  border-top: 1px solid #e7e9ed;
+  border-top: 1px solid #dce3ec;
   padding-top: 20px;
   margin-top: 25px;
-  color: #626974;
+  color: #5d6878;
 }
 .consent-control > svg {
   flex-shrink: 0;
-  color: #2855d9;
+  color: #315cdb;
   margin-top: 1px;
 }
 .consent-control p {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
   max-width: 420px;
 }
@@ -314,24 +313,24 @@ p {
   border: 1px solid transparent;
 }
 .consent-actions .consent-cancel {
-  color: #626974;
+  color: #5d6878;
   background: #fff;
   border-color: #d6dce6;
 }
 .consent-cancel:hover {
-  background: #f5f7fb;
+  background: #f3f6fa;
 }
 .consent-allow {
   color: #fff;
-  background: #2855d9;
+  background: #315cdb;
 }
 .consent-allow:hover {
-  background: #2047bd;
+  background: #2448b7;
 }
 .consent-footer {
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.8;
-  text-align: center;
+  text-align: left;
   color: #7b8491;
   margin-top: 16px;
 }
@@ -343,16 +342,23 @@ p {
     padding: 30px 22px;
   }
   .consent-brand {
-    font-size: 21px;
+    font-size: 19px;
   }
   .consent-account {
     padding: 15px 13px;
     gap: 9px;
   }
   .consent-account > a {
-    font-size: 10px;
+    font-size: 13px;
   }
   .consent-permissions {
     margin-top: 26px;
   }
 }
+
+.consent-brand > span:last-child { line-height: 1.05; letter-spacing: -.4px; }
+.brand-light { display: block; }
+.consent-shell { border: 1px solid #dce3ec; border-radius: 14px; margin: 40px auto 64px; padding: 32px; }
+.consent-bridge { justify-content: flex-start; margin: 0 0 28px; max-width: 240px; }
+.consent-header-note { font-size: 13px; }
+@media (max-width: 600px) { .consent-shell { margin: 24px 20px; padding: 24px; } .consent-header-note { display: none; } }

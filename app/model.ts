@@ -48,9 +48,9 @@ export const uid = () => crypto.randomUUID();
 export const baseStyle: Style = {
   font: "Manrope",
   size: 32,
-  accent: "#2855D9",
+  accent: "#315CDB",
   background: "#FFFFFF",
-  color: "#17191D",
+  color: "#202936",
   align: "left",
 };
 export function newSlide(layout: Layout = "gambar"): Slide {
@@ -86,7 +86,7 @@ export function newProject(): Project {
 export function exampleProject(): Project {
   const p = newProject();
   p.title = "Cara menjelaskan ide yang rumit";
-  p.account = "@ruangslide";
+  p.account = "@carouselgenerator";
   const content: [Layout, string, string, string][] = [
     [
       "sampul",

@@ -10,7 +10,7 @@ import {
 import { api, type Project } from "./model";
 import { SlideArt } from "./slide";
 import { renderSlides } from "./transfer";
-import { Modal } from "./studio";
+import { Modal } from "./ui";
 
 type ConnectionStatus = {
   configured: boolean;

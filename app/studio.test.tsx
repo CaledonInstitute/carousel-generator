@@ -15,7 +15,7 @@ import {
   deleteProject,
   effectiveStyle,
 } from "./model";
-import { SlideArt, slideWarnings, wrap } from "./slide";
+import { SlideArt, slideWarnings, wrap, metrics } from "./slide";
 import { exportPNG, renderSlides } from "./transfer";
 
 test("new projects have five blank slides; example content stays separate", () => {
@@ -251,7 +251,35 @@ test("square image renderer keeps the full image without crop controls", () => {
   p.assets.photo = "https://images.example.org/photo.png";
   s.image = "photo";
   const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
-  assert.match(svg, /viewBox="0 0 414 414"/);
   assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
-  assert.match(svg, /width="414" height="414"/);
+  assert.match(svg, /width="424" height="424"/);
+});
+
+test("new compositions keep normal content safe and flag overflow in every text region", () => {
+  const p = exampleProject();
+  for (const layout of ["sampul", "gambar", "daftar", "langkah", "perbandingan", "penutup"] as const) {
+    const s = { ...newSlide(layout), title: "Satu ide yang jelas", body: "Penjelasan singkat untuk pembaca.", secondary: "Simpan untuk nanti." };
+    assert.equal(metrics(p, s).overflow, false, layout);
+    assert.ok(metrics(p, s).titleBottom < metrics(p, s).bodyTop, layout);
+    assert.equal(metrics(p, { ...s, title: "Judul sangat panjang ".repeat(100) }).overflow, true, `${layout}: title`);
+    assert.equal(metrics(p, { ...s, body: "Isi sangat panjang ".repeat(200) }).overflow, true, `${layout}: body`);
+    if (layout === "perbandingan" || layout === "penutup") {
+      assert.equal(metrics(p, { ...s, secondary: "Kalimat panjang ".repeat(200) }).overflow, true, `${layout}: secondary`);
+    }
+  }
+});
+
+test("existing project style, alignment and identity controls survive composition changes", () => {
+  const p = exampleProject();
+  p.style = { font: "DM Sans", size: 40, accent: "#992244", background: "#112233", color: "#FFFFFF", align: "center" };
+  const before = structuredClone(p);
+  const s = { ...p.slides[0], hideAccount: true, hideNumber: true };
+  const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
+  assert.match(svg, /font-family="DM Sans"/);
+  assert.match(svg, /fill="#112233"/);
+  assert.match(svg, /fill="#FFFFFF"/);
+  assert.match(svg, /text-anchor="middle"/);
+  assert.ok(!svg.includes(p.account));
+  assert.ok(!svg.includes("01 /"));
+  assert.deepEqual(p, before);
 });

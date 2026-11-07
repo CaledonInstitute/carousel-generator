@@ -173,9 +173,9 @@ try {
   }
   for (const path of [
     "/consent.css",
-    "/fonts/manrope-400.woff2",
-    "/fonts/manrope-600.woff2",
-    "/fonts/manrope-700.woff2",
+    "/fonts/ibm-plex-sans-400.woff2",
+    "/fonts/ibm-plex-sans-600.woff2",
+    "/fonts/ibm-plex-sans-700.woff2",
   ]) {
     const response = await fetch(`${origin}${path}`);
     assert.equal(response.status, 200, `Missing consent asset: ${path}`);

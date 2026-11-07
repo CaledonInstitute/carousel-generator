@@ -1,4 +1,4 @@
-# Ruang Slide
+# Carousel Generator
 
 Studio carousel edukasi berbahasa Indonesia, dengan akun username/password, proyek pribadi di Cloudflare D1, dan MCP untuk Claude.ai atau agent lain. Kanvas tetap 1080 × 1080 dengan 5–20 slide dan enam layout.
 
@@ -28,7 +28,7 @@ Autosave memakai versi proyek, bukan last-write-wins. Editor memeriksa pembaruan
 
 Endpoint produksi: `https://carousel.hengker.tech/mcp` (Streamable HTTP, stateless, SDK MCP resmi). Endpoint baru tersedia setelah aplikasi ini dideploy.
 
-Di Claude.ai, tambahkan konektor kustom dengan URL tersebut, masuk memakai username/password Ruang Slide, lalu izinkan akses pada layar persetujuan. Agent tidak menerima password. OAuth mendukung discovery, dynamic client registration, authorization code dengan PKCE S256, access token 1 jam, dan refresh token berotasi hingga 90 hari per token. Resource OAuth wajib `https://carousel.hengker.tech/mcp`.
+Di Claude.ai, tambahkan konektor kustom dengan URL tersebut, masuk memakai username/password Carousel Generator, lalu izinkan akses pada layar persetujuan. Agent tidak menerima password. OAuth mendukung discovery, dynamic client registration, authorization code dengan PKCE S256, access token 1 jam, dan refresh token berotasi hingga 90 hari per token. Resource OAuth wajib `https://carousel.hengker.tech/mcp`.
 
 Client yang mendukung bearer token juga dapat memakai token pribadi dari `/pengaturan`:
 
@@ -90,3 +90,9 @@ Pengujian mencakup isolasi pengguna, autentikasi/CSRF/rate limit, kedaluwarsa da
 Tes Instagram memakai D1 lokal dan mock respons Meta: OAuth terikat sesi, izin publikasi, snapshot/idempotensi, batas slide dan caption, JPEG dalam potongan BLOB, URL bertanda tangan, kedaluwarsa media, kelanjutan proses, serta pencegahan publish berulang saat respons terputus. Tes otomatis tidak memposting ke Instagram.
 
 Smoke test membangun aplikasi dan menjalankannya di workerd, memeriksa pengalihan login, registrasi, CRUD D1, MCP/discovery, reload halaman, aset, dan enam font. Akun pengujian hanya dibuat pada database lokal.
+
+## Pemeriksaan tampilan
+
+Jalankan `npx playwright install chromium` sekali, lalu `npm run test:ui`. Perintah ini membangun aplikasi dan menjalankan preview lokal sementara secara otomatis. Pengujian hanya menerima server lokal dan membuat akun serta proyek uji tersendiri. Screenshot disimpan di `.vinext/ui-review`. Gunakan `UI_BASE_URL` untuk server lokal yang sudah berjalan atau `UI_CHROMIUM_PATH` untuk executable Chromium yang sudah tersedia.
+
+UI memakai IBM Plex Sans dan identitas Carousel Generator. Semua proyek, termasuk proyek lama, menggunakan enam komposisi slide terbaru tanpa mengubah isi atau pilihan gaya tersimpan. Endpoint, domain, dan identitas teknis MCP tetap sama.

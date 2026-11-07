@@ -1,6 +1,6 @@
 # Instagram pilot
 
-Fitur ini hanya tersedia untuk satu ID pengguna Ruang Slide dan satu akun Instagram Business/Creator. Tidak ada posting produksi otomatis selama setup. MCP tidak memiliki akses publikasi. Dokumen proyek tetap versi 2.
+Fitur ini hanya tersedia untuk satu ID pengguna Carousel Generator dan satu akun Instagram Business/Creator. Tidak ada posting produksi otomatis selama setup. MCP tidak memiliki akses publikasi. Dokumen proyek tetap versi 2.
 
 Implementasi memakai **website dan D1 yang sudah ada**. Tidak perlu R2, Cloudflare Queue, worker terpisah, maupun cron. Browser merender JPEG; server menyimpannya sementara di D1 dan melanjutkan publikasi satu langkah per permintaan dari dialog editor.
 
@@ -37,7 +37,7 @@ Di `wrangler.jsonc`, tambahkan vars `INSTAGRAM_OWNER_ID` (ID di atas), `INSTAGRA
 | Variabel | Nilai yang diisi |
 | --- | --- |
 | `INSTAGRAM_ENABLED` | String `"false"` selama setup; `"true"` untuk aktivasi. |
-| `INSTAGRAM_OWNER_ID` | ID akun Ruang Slide dari tabel `users`, bukan username atau ID Instagram. |
+| `INSTAGRAM_OWNER_ID` | ID akun Carousel Generator dari tabel `users`, bukan username atau ID Instagram. |
 | `INSTAGRAM_APP_ID` | Instagram App ID dari setup Instagram Login. |
 | `INSTAGRAM_API_VERSION` | Versi Graph API yang telah diverifikasi di Meta, dengan format `v` + nomor versi, misalnya pola `vXX.0`. Ganti `XX` dengan nomor aktual; tidak ada default. |
 | `INSTAGRAM_ORIGIN` | `https://carousel.hengker.tech`, tanpa slash penutup, agar callback dan URL media menggunakan domain yang sama. |

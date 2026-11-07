@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api } from "./model";
-import { Header } from "./studio";
+import { Header } from "./ui";
 export function AuthForm({ register = false }: { register?: boolean }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);

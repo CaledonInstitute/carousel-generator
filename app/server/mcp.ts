@@ -107,7 +107,7 @@ export const mcpHandler = (db: DB, req: Request) =>
       { name: "ruang-slide", version: "1.0.0" },
       {
         instructions:
-          "Manage private Ruang Slide carousels. Projects have 5–20 slides at 1080×1080. Use get_project before update/delete and pass its revision. Images must be public HTTPS URLs with exact 1:1 dimensions. Edits are shared with the web editor. Deletion is permanent.",
+          "Manage private Carousel Generator carousels. Projects have 5–20 slides at 1080×1080. Use get_project before update/delete and pass its revision. Images must be public HTTPS URLs with exact 1:1 dimensions. Edits are shared with the web editor. Deletion is permanent.",
       },
     );
     const result = async (run: () => Promise<unknown>) => {

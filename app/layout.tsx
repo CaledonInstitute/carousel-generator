@@ -8,10 +8,12 @@ import "@fontsource/manrope/latin-800.css";
 import "@fontsource/dm-sans/latin-400.css";
 import "@fontsource/dm-sans/latin-700.css";
 import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
 import "@fontsource/ibm-plex-sans/latin-700.css";
 
 export const metadata: Metadata = {
-  title: "Ruang Slide — Ruang untuk ide yang berarti",
+  title: "Carousel Generator — Studio carousel edukasi",
   description:
     "Studio carousel edukasi. Tulis, susun, dan unduh cerita visualmu. Simpan proyek di cloud dan hubungkan agent.",
 };

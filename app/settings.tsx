@@ -20,7 +20,7 @@ import {
   Camera as Instagram,
 } from "lucide-react";
 import { api } from "./model";
-import { Header, Modal } from "./studio";
+import { Header, Modal } from "./ui";
 import { InstagramSettings } from "./instagram";
 
 type Connections = {
@@ -51,7 +51,7 @@ export function Settings({ username }: { username: string }) {
   const [creating, setCreating] = useState(false);
   const [pending, setPending] = useState<PendingAccess>();
   const [revoking, setRevoking] = useState(false);
-  const [section, setSection] = useState("hubungkan");
+  const [section, setSection] = useState("akun");
   const tokenInput = useRef<HTMLInputElement>(null);
   const refreshSequence = useRef(0);
   const busy = creating || revoking;
@@ -86,17 +86,19 @@ export function Settings({ username }: { username: string }) {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries)
-          if (entry.isIntersecting) setSection(entry.target.id);
-      },
-      { rootMargin: "-15% 0px -55% 0px", threshold: 0 },
-    );
-    document
-      .querySelectorAll(".settings-content > section[id]")
-      .forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
+    const sections = Array.from(document.querySelectorAll<HTMLElement>(".settings-content > section[id]"));
+    const update = () => {
+      const threshold = window.innerWidth <= 900 ? 120 : 80;
+      const visible = sections.filter((node) => node.getBoundingClientRect().top <= threshold);
+      setSection((visible.at(-1) ?? sections[0])?.id ?? "akun");
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, []);
   async function copy(value: string, key: string, label: string) {
     try {
@@ -189,7 +191,7 @@ export function Settings({ username }: { username: string }) {
   return (
     <>
       <Header active="settings" />
-      <main className="settings-shell">
+      <main className="settings-shell workspace-page">
         <aside className="settings-sidebar">
           <div className="settings-sidebar-heading">
             <h2>Pengaturan</h2>
@@ -197,7 +199,8 @@ export function Settings({ username }: { username: string }) {
           </div>
           <nav aria-label="Bagian pengaturan">
             {[
-              { id: "hubungkan", label: "Hubungkan MCP", icon: Plug },
+              { id: "akun", label: "Akun", icon: ShieldCheck },
+              { id: "hubungkan", label: "Koneksi agent", icon: Plug },
               { id: "instagram", label: "Instagram", icon: Instagram },
               { id: "akses-agent", label: "Akses agent", icon: ShieldCheck },
               { id: "token-pribadi", label: "Token pribadi", icon: KeyRound },
@@ -220,7 +223,7 @@ export function Settings({ username }: { username: string }) {
             </span>
             <div>
               <strong title={username}>{username}</strong>
-              <span>Akun Ruang Slide</span>
+              <span>Akun Carousel Generator</span>
             </div>
           </div>
           <a className="settings-back" href="/proyek">
@@ -228,15 +231,16 @@ export function Settings({ username }: { username: string }) {
           </a>
         </aside>
         <div className="settings-content">
+          <section id="akun" className="settings-account">
+            <h1>Pengaturan</h1>
+            <p>Kelola akun dan koneksi untuk membuat carousel.</p>
+            <div className="account-summary"><span className="nav-avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><div><h2>{username}</h2><p>Akun Carousel Generator</p></div></div>
+          </section>
           <section id="hubungkan" className="settings-connect">
             <div className="settings-page-heading">
-              <h1>
-                Ide dari percakapan.
-                <br />
-                Langsung jadi carousel.
-              </h1>
+              <h2>Koneksi agent</h2>
               <p>
-                Hubungkan agent ke Ruang Slide. Susun materi di chat, lalu
+                Hubungkan agent ke Carousel Generator. Susun materi di chat, lalu
                 lanjutkan desain di editor yang sama.
               </p>
             </div>
@@ -305,9 +309,9 @@ export function Settings({ username }: { username: string }) {
                     <li>
                       <span aria-hidden="true">2</span>
                       <div>
-                        <h3>Tempel URL Ruang Slide</h3>
+                        <h3>Tempel URL Carousel Generator</h3>
                         <p>
-                          Beri nama “Ruang Slide”, lalu gunakan URL server MCP
+                          Beri nama “Carousel Generator”, lalu gunakan URL server MCP
                           di atas. Jika diminta memilih OAuth client, pilih
                           “Register automatically”.
                         </p>
@@ -348,7 +352,7 @@ export function Settings({ username }: { username: string }) {
                   <h3>Gunakan URL yang sama.</h3>
                   <p>
                     Jika client mendukung login melalui browser, sambungkan URL
-                    MCP lalu masuk ke Ruang Slide. Jika client memerlukan token,
+                    MCP lalu masuk ke Carousel Generator. Jika client memerlukan token,
                     buat token pribadi di bawah.
                   </p>
                   <div className="header-example">
@@ -430,7 +434,7 @@ export function Settings({ username }: { username: string }) {
                 </span>
                 <h3>Ruangmu belum terhubung.</h3>
                 <p>
-                  Tambahkan Ruang Slide di client pilihanmu. Koneksinya akan
+                  Tambahkan Carousel Generator di client pilihanmu. Koneksinya akan
                   muncul di sini setelah kamu memberi izin.
                 </p>
                 <a className="settings-inline-link" href="#hubungkan">

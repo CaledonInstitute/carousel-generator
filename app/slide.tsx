@@ -1,6 +1,5 @@
-import { imageSource } from "./model";
 import React from "react";
-import { effectiveStyle, type Project, type Slide } from "./model";
+import { effectiveStyle, imageSource, type Project, type Slide } from "./model";
 
 // The conservative glyph widths keep wrapping deterministic in preview and exported SVG.
 export function wrap(text: string, width: number, size: number): string[] {
@@ -34,311 +33,100 @@ export function wrap(text: string, width: number, size: number): string[] {
     return lines;
   });
 }
+// All coordinates and overflow checks share these metrics with the SVG renderer.
+// Text positions are baselines; safe content ends before the footer at y=960.
 export function metrics(p: Project, s: Slide) {
-  const st = effectiveStyle(p, s),
-    hero = s.layout === "sampul" || s.layout === "penutup",
-    titleSize = hero ? st.size * 2.65 : st.size * 1.8;
-  const titleLines = wrap(s.title, 900, titleSize);
-  const titleBottom =
-    (hero ? 260 : 180) + Math.max(1, titleLines.length) * titleSize * 1.16;
-  const bodyTop = hero
-    ? Math.max(690, titleBottom + 45)
-    : Math.max(380, titleBottom + 58);
-  const width =
-    s.layout === "gambar" || s.layout === "perbandingan" ? 410 : 880;
+  const st = effectiveStyle(p, s);
+  const hero = s.layout === "sampul" || s.layout === "penutup";
+  const titleSize = st.size * (s.layout === "sampul" ? 2.75 : s.layout === "penutup" ? 2.4 : 1.7);
+  const titleY = hero ? 264 : 196;
+  const titleLines = wrap(s.title, 920, titleSize);
+  const titleBottom = titleY + (Math.max(1, titleLines.length) - 1) * titleSize * 1.12 + titleSize * .25;
+  const bodyTop = Math.max(hero ? 620 : 350, titleBottom + st.size + 48);
+  const split = s.layout === "gambar" || s.layout === "perbandingan";
+  const width = split ? 424 : 920;
   const bodyLines = wrap(s.body, width, st.size);
-  const secondaryLines = wrap(
-    s.secondary,
-    s.layout === "perbandingan" ? 410 : 880,
-    st.size,
-  );
-  const listHeight = s.body
-    .split("\n")
-    .reduce(
-      (height, block) =>
-        height +
-        wrap(block, 820, st.size).length * st.size * 1.55 +
-        st.size * 0.65,
-      0,
-    );
-  const contentBottom =
-    bodyTop +
-    (s.layout === "daftar" || s.layout === "langkah"
-      ? listHeight
-      : Math.max(
-          bodyLines.length,
-          s.layout === "perbandingan" ? secondaryLines.length : 0,
-        ) *
-        st.size *
-        1.55);
-  return {
-    st,
-    hero,
-    titleSize,
-    titleLines,
-    titleBottom,
-    bodyTop,
-    width,
-    bodyLines,
-    secondaryLines,
-    overflow:
-      titleBottom > 920 ||
-      contentBottom > 930 ||
-      (s.layout === "penutup" && secondaryLines.length > 1),
-  };
+  const secondarySize = s.layout === "penutup" ? st.size * .9 : st.size;
+  const secondaryLines = wrap(s.secondary, s.layout === "perbandingan" ? 424 : 856, secondarySize);
+  const blocks = s.body.split("\n").map((block) => wrap(block, 832, st.size));
+  const listHeight = blocks.reduce((height, lines) => height + lines.length * st.size * 1.5 + 28, 0);
+  const bodyBottom = bodyTop + (Math.max(1, bodyLines.length) - 1) * st.size * 1.5 + st.size * .25;
+  const ctaY = Math.max(820, bodyBottom + 76);
+  const secondaryBottom = s.layout === "penutup"
+    ? ctaY + (secondaryLines.length - 1) * secondarySize * 1.5 + secondarySize * .25 + 28
+    : bodyTop + (secondaryLines.length - 1) * st.size * 1.5 + st.size * .25;
+  const contentBottom = s.layout === "daftar" || s.layout === "langkah"
+    ? bodyTop + listHeight - 28 - st.size * 1.25
+    : s.layout === "perbandingan" ? Math.max(bodyBottom, secondaryBottom)
+    : s.layout === "gambar" ? Math.max(bodyBottom, bodyTop - 26 + 424)
+    : s.layout === "penutup" && s.secondary ? Math.max(bodyBottom, secondaryBottom) : bodyBottom;
+  return { st, hero, titleSize, titleY, titleLines, titleBottom, bodyTop, width,
+    bodyLines, secondaryLines, secondarySize, blocks, ctaY, contentBottom,
+    overflow: titleBottom > 940 || contentBottom > 940 };
 }
 export function slideWarnings(p: Project, s: Slide) {
   const result: string[] = [];
-  if (metrics(p, s).overflow)
-    result.push(
-      "Teks melebihi area slide. Ringkas isi atau bagi ke slide baru.",
-    );
-  if (s.layout === "gambar" && !s.image)
-    result.push(
-      "Layout ini membutuhkan gambar. Unggah gambar atau pilih layout lain.",
-    );
+  if (metrics(p, s).overflow) result.push("Teks melebihi area slide. Ringkas isi atau bagi ke slide baru.");
+  if (s.layout === "gambar" && !s.image) result.push("Layout ini membutuhkan gambar. Tambahkan URL gambar atau pilih layout lain.");
   return result;
 }
-export function SlideArt({
-  project: p,
-  slide: s,
-  index = 0,
-  fonts = "",
-  guides = false,
-}: {
-  project: Project;
-  slide: Slide;
-  index?: number;
-  fonts?: string;
-  guides?: boolean;
+export function SlideArt({ project: p, slide: s, index = 0, fonts = "", guides = false }: {
+  project: Project; slide: Slide; index?: number; fonts?: string; guides?: boolean;
 }) {
-  const {
-    st,
-    hero,
-    titleSize,
-    titleLines,
-    bodyTop,
-    width,
-    bodyLines,
-    secondaryLines,
-  } = metrics(p, s);
+  const m = metrics(p, s);
+  const { st, titleSize, titleY, titleLines, bodyTop, bodyLines, secondaryLines } = m;
   const center = st.align === "center";
-  function lines(
-    items: string[],
-    x: number,
-    y: number,
-    size: number,
-    weight = 400,
-    color = st.color,
-    lineHeight = 1.55,
-  ) {
-    return (
-      <text
-        x={x}
-        y={y}
-        fontSize={size}
-        fontWeight={weight}
-        fill={color}
-        textAnchor={center ? "middle" : "start"}
-      >
-        {items.map((line, i) => (
-          <tspan key={i} x={x} dy={i === 0 ? 0 : size * lineHeight}>
-            {line}
-          </tspan>
-        ))}
-      </text>
-    );
+  function lines(items: string[], left: number, width: number, y: number, size = st.size, weight = 400, color = st.color, lineHeight = 1.5) {
+    const x = center ? left + width / 2 : left;
+    return <text x={x} y={y} fontSize={size} fontWeight={weight} fill={color} textAnchor={center ? "middle" : "start"}>
+      {items.map((line, i) => <tspan key={i} x={x} dy={i === 0 ? 0 : size * lineHeight}>{line}</tspan>)}
+    </text>;
   }
-  const imageY = Math.min(bodyTop - 35, 520),
-    imageH = 414;
-  const blocks = s.body.split("\n");
   let listY = bodyTop;
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="1080"
-      height="1080"
-      viewBox="0 0 1080 1080"
-      className="slide-art"
-      role="img"
-      aria-label={s.title || `Slide ${index + 1}`}
-    >
-      {fonts && (
-        <defs>
-          <style>{fonts}</style>
-        </defs>
-      )}
-      <rect width="1080" height="1080" fill={st.background} />
-      <g fontFamily={st.font}>
-        {!s.hideAccount && p.account && (
-          <text x="86" y="88" fontSize="23" fill={st.color} opacity=".7">
-            {p.account}
-          </text>
-        )}
-        {s.layout === "sampul" && (
-          <>
-            <rect
-              x="86"
-              y="151"
-              width="62"
-              height="7"
-              rx="3.5"
-              fill={st.accent}
-            />
-            <circle cx="940" cy="151" r="8" fill={st.accent} />
-          </>
-        )}
-        {lines(
-          titleLines,
-          center ? 540 : 86,
-          hero ? 260 : 180,
-          titleSize,
-          700,
-          st.color,
-          1.16,
-        )}
-        {s.layout === "daftar" || s.layout === "langkah" ? (
-          <>
-            {blocks.map((block, i) => {
-              const y = listY,
-                wrapped = wrap(block, 820, st.size);
-              listY += wrapped.length * st.size * 1.55 + st.size * 0.65;
-              return (
-                <g key={i}>
-                  {block && (
-                    <text
-                      x="86"
-                      y={y}
-                      fontSize={st.size * 0.78}
-                      fill={st.accent}
-                      fontWeight="700"
-                    >
-                      {s.layout === "langkah"
-                        ? String(i + 1).padStart(2, "0")
-                        : "•"}
-                    </text>
-                  )}
-                  {lines(wrapped, center ? 560 : 148, y, st.size)}
-                </g>
-              );
-            })}
-          </>
-        ) : (
-          lines(
-            bodyLines,
-            center
-              ? s.layout === "perbandingan"
-                ? 290
-                : s.layout === "gambar"
-                  ? 290
-                  : 540
-              : 86,
-            bodyTop,
-            st.size,
-          )
-        )}
-        {s.layout === "perbandingan" && (
-          <>
-            <line
-              x1="540"
-              y1={bodyTop - 35}
-              x2="540"
-              y2="895"
-              stroke="#DDE1E7"
-            />
-            {lines(
-              secondaryLines,
-              center ? 790 : 594,
-              bodyTop,
-              st.size,
-              400,
-              st.accent,
-            )}
-          </>
-        )}
-        {s.layout === "penutup" &&
-          lines(
-            secondaryLines,
-            center ? 540 : 86,
-            880,
-            st.size * 0.85,
-            700,
-            st.accent,
-          )}
-        {s.layout === "gambar" &&
-          (s.image && p.assets[s.image] ? (
-            <svg
-              x="580"
-              y={imageY}
-              width="414"
-              height={imageH}
-              viewBox="0 0 414 414"
-              overflow="hidden"
-            >
-              <image
-                href={imageSource(p.assets[s.image])}
-                x={0}
-                y={0}
-                width={414}
-                height={414}
-                preserveAspectRatio="xMidYMid meet"
-              />
-            </svg>
-          ) : (
-            guides && (
-              <g>
-                <rect
-                  x="580"
-                  y={imageY}
-                  width="414"
-                  height={imageH}
-                  fill="#F5F6F8"
-                  rx="4"
-                />
-                <text
-                  x="787"
-                  y={imageY + 210}
-                  textAnchor="middle"
-                  fontSize="24"
-                  fill="#626974"
-                >
-                  Tambahkan gambar
-                </text>
-              </g>
-            )
-          ))}
-        {guides && !s.title && (
-          <text
-            x="86"
-            y={hero ? 260 : 180}
-            fontSize={titleSize * 0.65}
-            fill="#B7BDC7"
-          >
-            Tulis judul di sini
-          </text>
-        )}
-        <line
-          x1="86"
-          y1="975"
-          x2="994"
-          y2="975"
-          stroke={st.color}
-          opacity=".12"
-        />
-        {!s.hideNumber && p.numbers && (
-          <text
-            x="994"
-            y="1020"
-            textAnchor="end"
-            fontSize="23"
-            fill={st.color}
-            opacity=".6"
-          >
-            {String(index + 1).padStart(2, "0")} /{" "}
-            {String(p.slides.length).padStart(2, "0")}
-          </text>
-        )}
-      </g>
-    </svg>
-  );
+  return <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080"
+    className="slide-art" role="img" aria-label={s.title || `Slide ${index + 1}`}>
+    {fonts && <defs><style>{fonts}</style></defs>}
+    <rect width="1080" height="1080" fill={st.background} />
+    <g fontFamily={st.font}>
+      {!s.hideAccount && p.account && <text x="80" y="94" fontSize="24" fill={st.color}>{p.account}</text>}
+      {s.layout === "sampul" && <rect x="80" y="154" width="112" height="8" rx="4" fill={st.accent} />}
+      {lines(titleLines, 80, 920, titleY, titleSize, 700, st.color, 1.12)}
+      {s.layout === "daftar" || s.layout === "langkah" ? m.blocks.map((block, i) => {
+        const y = listY;
+        listY += block.length * st.size * 1.5 + 28;
+        return <g key={i}>
+          {s.body.split("\n")[i] && (s.layout === "langkah"
+            ? <><rect x="80" y={y - st.size * .85} width="52" height={st.size * 1.25} rx="8" fill={st.accent} opacity=".1" />
+                <text x="106" y={y} fontSize={st.size * .8} fontWeight="700" textAnchor="middle" fill={st.accent}>{i + 1}</text></>
+            : <circle cx="100" cy={y - st.size * .3} r="6" fill={st.accent} />)}
+          {lines(block, 168, 832, y)}
+        </g>;
+      }) : lines(bodyLines, 80, m.width, bodyTop)}
+      {s.layout === "perbandingan" && <>
+        <line x1="540" y1={bodyTop - 28} x2="540" y2={Math.max(860, m.contentBottom)} stroke={st.color} opacity=".16" />
+        <rect x="576" y={bodyTop - 60} width="64" height="5" rx="2.5" fill={st.accent} />
+        {lines(secondaryLines, 576, 424, bodyTop)}
+      </>}
+      {s.layout === "penutup" && s.secondary && <>
+        <rect x="80" y={m.ctaY - m.secondarySize - 16} width="920"
+          height={Math.max(1, secondaryLines.length) * m.secondarySize * 1.5 + 32} rx="12" fill={st.accent} opacity=".09" />
+        {lines(secondaryLines, 112, 856, m.ctaY, m.secondarySize, 700, st.color)}
+      </>}
+      {s.layout === "gambar" && (s.image && p.assets[s.image]
+        ? <image href={imageSource(p.assets[s.image])} x="576" y={bodyTop - 26} width="424" height="424" preserveAspectRatio="xMidYMid meet" />
+        : guides && <g>
+            <rect x="576" y={bodyTop - 26} width="424" height="424" fill={st.color} opacity=".05" rx="12" />
+            <text x="788" y={bodyTop + 190} textAnchor="middle" fontSize="24" fill={st.color} opacity=".7">Tambahkan gambar</text>
+          </g>)}
+      {guides && !s.title && <text x={center ? 540 : 80} y={titleY} textAnchor={center ? "middle" : "start"}
+        fontSize={titleSize * .65} fill={st.color} opacity=".35">Tulis judul di sini</text>}
+      <line x1="80" y1="974" x2="1000" y2="974" stroke={st.color} opacity=".14" />
+      {!s.hideNumber && p.numbers && <>
+        <rect x="80" y="974" width={920 * (index + 1) / p.slides.length} height="3" fill={st.accent} />
+        <text x="1000" y="1022" textAnchor="end" fontSize="23" fill={st.color} opacity=".75">
+          {String(index + 1).padStart(2, "0")} / {String(p.slides.length).padStart(2, "0")}
+        </text>
+      </>}
+    </g>
+  </svg>;
 }
