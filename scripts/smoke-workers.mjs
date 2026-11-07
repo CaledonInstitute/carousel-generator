@@ -58,6 +58,13 @@ try {
       ))
         assets.add(match[1]);
       if (path.startsWith("/editor/")) assert.match(html, /Membuka studio/);
+      if (path === "/pengaturan") {
+        for (const anchor of ["hubungkan", "akses-agent", "token-pribadi"])
+          assert.ok(html.includes(`id="${anchor}"`));
+        assert.ok(html.includes('aria-label="Bagian pengaturan"'));
+        assert.ok(html.includes('id="mcp-url"'));
+        assert.ok(html.includes("https://claude.ai/customize/connectors"));
+      }
     }
     console.log(`PASS ${path} (direct request + reload)`);
   }
@@ -111,11 +118,55 @@ try {
     (await discovery.json()).resource,
     "https://carousel.hengker.tech/mcp",
   );
+  const registration = await api("/oauth/register", "POST", {
+    client_name: "Workers consent preview",
+    redirect_uris: ["https://example.com/callback"],
+    token_endpoint_auth_method: "none",
+  });
+  assert.equal(registration.status, 201);
+  const client = await registration.json();
+  const consentParams = new URLSearchParams({
+    client_id: client.client_id,
+    redirect_uri: "https://example.com/callback",
+    response_type: "code",
+    code_challenge: "a".repeat(43),
+    code_challenge_method: "S256",
+    resource: "https://carousel.hengker.tech/mcp",
+  });
+  const consent = await api(
+    `/oauth/authorize?${consentParams}`,
+    "GET",
+    undefined,
+    cookie,
+  );
+  assert.equal(consent.status, 200);
+  assert.ok(
+    consent.headers.get("content-security-policy").includes("font-src 'self'"),
+  );
+  const consentHTML = await consent.text();
+  for (const text of [
+    "consent-bridge",
+    "Akses yang kamu berikan",
+    'name="decision" value="allow"',
+    'name="decision" value="deny"',
+    "Ganti akun",
+  ])
+    assert.ok(consentHTML.includes(text), `Missing consent content: ${text}`);
   assert.ok(assets.size > 0);
   for (const path of assets) {
     const res = await fetch(new URL(path, origin));
     assert.equal(res.status, 200, `Missing ${path}`);
     await res.arrayBuffer();
+  }
+  for (const path of [
+    "/consent.css",
+    "/fonts/manrope-400.woff2",
+    "/fonts/manrope-600.woff2",
+    "/fonts/manrope-700.woff2",
+  ]) {
+    const response = await fetch(`${origin}${path}`);
+    assert.equal(response.status, 200, `Missing consent asset: ${path}`);
+    await response.arrayBuffer();
   }
   const files = await readdir("dist/client/_next/static/media");
   for (const family of ["manrope", "dm-sans", "ibm-plex-sans"])

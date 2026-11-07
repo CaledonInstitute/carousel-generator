@@ -254,7 +254,7 @@ function IconButton({
     </button>
   );
 }
-function Modal({
+export function Modal({
   title,
   children,
   close,

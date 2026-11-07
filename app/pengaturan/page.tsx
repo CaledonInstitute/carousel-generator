@@ -1,6 +1,6 @@
-import { Settings } from "../account";
+import { Settings } from "../settings";
 import { protectPage } from "../server/page-auth";
 export default async function Page() {
-  await protectPage("/pengaturan");
-  return <Settings />;
+  const user = await protectPage("/pengaturan");
+  return <Settings username={user.username} />;
 }

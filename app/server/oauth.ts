@@ -1,3 +1,4 @@
+import { renderConsent } from "./consent";
 import {
   type DB,
   ORIGIN,
@@ -11,18 +12,9 @@ import {
   random,
   rateLimit,
   readBody,
-  requireUser,
   sessionUser,
 } from "./core";
 const resource = `${ORIGIN}/mcp`;
-const esc = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ]!,
-  );
 export function metadata(path: string) {
   if (path.startsWith("/.well-known/oauth-protected-resource"))
     return json({
@@ -164,21 +156,18 @@ export const oauthHandler = (db: DB, req: Request) =>
         );
       }
       if (req.method === "GET") {
-        const hidden = [...params]
-          .filter(([key]) => key !== "decision")
-          .map(
-            ([key, value]) =>
-              `<input type="hidden" name="${esc(key)}" value="${esc(value)}">`,
-          )
-          .join("");
         return new Response(
-          `<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hubungkan agent · Ruang Slide</title><link rel="stylesheet" href="/consent.css"><main><a href="/">ruangslide.</a><h1>Hubungkan ${esc(client!.name)}?</h1><p>Masuk sebagai <strong>${esc(user.username)}</strong>. Agent ini dapat membaca, membuat, mengedit, dan menghapus seluruh proyek di akunmu.</p><p>Kamu dapat mencabut akses kapan saja di Pengaturan.</p><form method="post">${hidden}<button name="decision" value="allow">Izinkan akses</button><button class="secondary" name="decision" value="deny">Batal</button></form></main></html>`,
+          renderConsent({
+            clientName: client!.name,
+            username: user.username,
+            params,
+          }),
           {
             headers: {
               "Content-Type": "text/html; charset=utf-8",
               "Cache-Control": "no-store",
               "Content-Security-Policy":
-                "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+                "default-src 'none'; style-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
               "X-Frame-Options": "DENY",
             },
           },

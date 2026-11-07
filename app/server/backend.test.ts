@@ -1,3 +1,4 @@
+import { renderConsent } from "./consent";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -544,4 +545,24 @@ test("authentication rate limits repeated login attempts", async () => {
     ).status,
     429,
   );
+});
+
+test("consent renders escaped client, account and form values with explicit approval and denial", () => {
+  const html = renderConsent({
+    clientName: '<script>alert("client")</script>',
+    username: '<img src=x onerror="alert(1)">',
+    params: new URLSearchParams({
+      client_id: "client",
+      state: '"><script>alert(1)</script>',
+      decision: "allow",
+    }),
+  });
+  assert.ok(!html.includes("<script>"));
+  assert.ok(!html.includes("<img"));
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(html.includes('name="decision" value="allow"'));
+  assert.ok(html.includes('name="decision" value="deny"'));
+  assert.ok(!html.includes('type="hidden" name="decision"'));
+  assert.ok(html.includes('name="state" value="&quot;&gt;&lt;script&gt;'));
+  assert.ok(html.includes("Penghapusan oleh agent bersifat permanen."));
 });
