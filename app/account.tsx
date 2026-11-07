@@ -8,8 +8,16 @@ export function AuthForm({ register = false }: { register?: boolean }) {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setBusy(true);
     const form = new FormData(e.currentTarget);
+    if (register && form.get("password") !== form.get("confirmPassword")) {
+      setError("Konfirmasi password tidak sama.");
+      const confirmation = e.currentTarget.elements.namedItem(
+        "confirmPassword",
+      ) as HTMLInputElement;
+      confirmation.focus();
+      return;
+    }
+    setBusy(true);
     try {
       await api(`/api/auth/${register ? "register" : "login"}`, {
         method: "POST",
@@ -69,8 +77,27 @@ export function AuthForm({ register = false }: { register?: boolean }) {
               12–128 karakter. Simpan passwordmu; tidak tersedia reset password.
             </small>
           </div>
+          {register && (
+            <div className="field">
+              <label htmlFor="confirm-password">Konfirmasi password</label>
+              <input
+                id="confirm-password"
+                type="password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                required
+                minLength={12}
+                maxLength={128}
+                aria-invalid={
+                  error === "Konfirmasi password tidak sama." || undefined
+                }
+                aria-describedby={error ? "auth-error" : undefined}
+                onChange={() => setError("")}
+              />
+            </div>
+          )}
           {error && (
-            <p className="error-note" role="alert">
+            <p id="auth-error" className="error-note" role="alert">
               {error}
             </p>
           )}
