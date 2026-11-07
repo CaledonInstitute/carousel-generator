@@ -18,7 +18,7 @@ Proyek disimpan hanya di D1, terpisah berdasarkan pemilik. Tidak ada migrasi ata
 
 ## Gambar dan editor
 
-Tempel URL HTTPS publik PNG, JPEG, atau WebP, maksimal 12 MB dan dimensi maksimal 16384 × 16384. Server memeriksa dimensi asli dan menolak rasio selain tepat 1:1. D1 menyimpan URL serta dimensi, tanpa R2 atau salinan gambar permanen. Link harus tetap tersedia dan dapat diambil tanpa login/cookie asal. URL yang memiliki masa berlaku dapat berhenti bekerja setelah kedaluwarsa.
+Tempel URL HTTPS publik PNG, JPEG, atau WebP, maksimal 12 MB dan dimensi maksimal 16384 × 16384. Server memeriksa dimensi asli dan menolak rasio selain tepat 1:1. Untuk gambar sumber proyek, D1 menyimpan URL serta dimensi; file sumber tidak disalin secara permanen. Link harus tetap tersedia dan dapat diambil tanpa login/cookie asal. URL yang memiliki masa berlaku dapat berhenti bekerja setelah kedaluwarsa. Fitur Instagram menyimpan JPEG hasil render secara sementara di D1, terpisah dari gambar sumber.
 
 Gambar tampil utuh dalam area persegi, tanpa crop/zoom. Preview mengambil gambar melalui endpoint akun; ekspor mengambil dan memvalidasi ulang gambar, menyisipkannya sementara ke SVG, lalu menghasilkan ZIP berisi PNG. Jika link berubah atau mati, ekspor menampilkan nomor slide bermasalah.
 
@@ -74,6 +74,8 @@ Implementasi tidak menjalankan deployment produksi. Verifikasi koneksi Claude.ai
 
 Posting carousel langsung tersedia sebagai fitur opsional untuk satu pengguna dan satu akun profesional Instagram. Fitur nonaktif secara default; tidak ada kredensial Meta di repository. Pengaturan menyediakan koneksi Instagram dan editor menyediakan preview, caption, serta posting 5–10 slide. JPEG sementara dan progres disimpan di D1; proses dilanjutkan melalui permintaan dari dialog editor. Biarkan dialog terbuka sampai selesai, atau buka kembali untuk melanjutkan. Ikuti [panduan konfigurasi dan aktivasi](docs/instagram.md) sebelum mengaktifkannya. ZIP PNG tetap tersedia untuk proyek hingga 20 slide.
 
+Integrasi ini tidak memerlukan R2, Cloudflare Queue, worker terpisah, atau cron. Jalankan seluruh migrasi D1, termasuk `0002_instagram.sql` dan `0003_instagram_d1_media.sql`, sebelum mengaktifkan Instagram. URL JPEG berlaku 48 jam sejak persiapan dibuat; data kedaluwarsa dibersihkan bertahap saat fitur diakses kembali. Refresh token juga dilakukan saat fitur digunakan, sehingga akun yang lama tidak digunakan mungkin perlu dihubungkan ulang.
+
 ## Pemeriksaan aplikasi
 
 ```sh
@@ -84,5 +86,7 @@ npx wrangler deploy --dry-run
 ```
 
 Pengujian mencakup isolasi pengguna, autentikasi/CSRF/rate limit, kedaluwarsa dan pencabutan token, OAuth PKCE dan refresh rotation, CRUD MCP, konflik versi, URL jaringan privat, dimensi/ukuran gambar, renderer enam layout, dan ekspor PNG dengan gambar URL serta tiga font. Pengujian canvas memakai mock; pemeriksaan visual dan unduhan browser tetap perlu dilakukan pada browser yang tersedia.
+
+Tes Instagram memakai D1 lokal dan mock respons Meta: OAuth terikat sesi, izin publikasi, snapshot/idempotensi, batas slide dan caption, JPEG dalam potongan BLOB, URL bertanda tangan, kedaluwarsa media, kelanjutan proses, serta pencegahan publish berulang saat respons terputus. Tes otomatis tidak memposting ke Instagram.
 
 Smoke test membangun aplikasi dan menjalankannya di workerd, memeriksa pengalihan login, registrasi, CRUD D1, MCP/discovery, reload halaman, aset, dan enam font. Akun pengujian hanya dibuat pada database lokal.
