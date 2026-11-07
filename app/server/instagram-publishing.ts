@@ -2,6 +2,7 @@ import { now } from "./core";
 import {
   configured,
   connection,
+  connectionExpired,
   decryptToken,
   encryptToken,
   graph,
@@ -39,7 +40,7 @@ export async function advanceJob(
       return false;
     }
     const c = await connection(env, job.user_id);
-    if (!c || c.id !== job.connection_id || c.reconnect || c.expires <= now()) {
+    if (!c || c.id !== job.connection_id || c.reconnect || connectionExpired(c)) {
       // Publishing might already have reached Meta; don't present this as safe to retry.
       await update(
         ["publishing", "verifying"].includes(job.status)
@@ -264,6 +265,13 @@ export async function advanceJob(
 export async function refreshConnections(env: InstagramEnv) {
   if (!configured(env)) return;
   const c = await connection(env, env.INSTAGRAM_OWNER_ID!);
+  // System-user tokens must never enter Instagram User token refresh endpoints.
+  if (c?.auth_method === "unified_login") {
+    if (connectionExpired(c))
+      await env.DB.prepare("UPDATE instagram_connections SET reconnect=1 WHERE user_id=? AND id=?")
+        .bind(c.user_id, c.id).run();
+    return;
+  }
   if (
     !c ||
     c.reconnect ||

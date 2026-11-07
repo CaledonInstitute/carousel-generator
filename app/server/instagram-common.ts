@@ -3,6 +3,7 @@ import { type DB, base64url, equal, fail, now } from "./core";
 export type InstagramEnv = {
   DB: DB;
   INSTAGRAM_APP_ID?: string;
+  INSTAGRAM_CONFIG_ID?: string;
   INSTAGRAM_APP_SECRET?: string;
   INSTAGRAM_TOKEN_KEY?: string;
   INSTAGRAM_MEDIA_KEY?: string;
@@ -20,6 +21,9 @@ export type Connection = {
   expires: number;
   refreshed: number;
   reconnect: number;
+  auth_method: string;
+  client_business_id: string | null;
+  config_id: string | null;
 };
 export type Job = {
   id: string;
@@ -51,6 +55,10 @@ export type Upload = {
 };
 export const origin = (env: InstagramEnv) =>
   env.INSTAGRAM_ORIGIN || "https://carousel.hengker.tech";
+export const authMethod = (env: InstagramEnv) =>
+  env.INSTAGRAM_CONFIG_ID ? "unified_login" : "instagram_login";
+export const connectionExpired = (c: Connection) =>
+  c.expires !== 0 && c.expires <= now();
 export function configured(env: InstagramEnv) {
   return Boolean(
     env.INSTAGRAM_ENABLED === "true" &&
@@ -202,7 +210,7 @@ export async function graph<T>(
   post = false,
 ) {
   const url = new URL(
-    `https://graph.instagram.com/${env.INSTAGRAM_API_VERSION}/${path}`,
+    `https://${env.INSTAGRAM_CONFIG_ID ? "graph.facebook.com" : "graph.instagram.com"}/${env.INSTAGRAM_API_VERSION}/${path}`,
   );
   if (!post)
     for (const [key, value] of Object.entries(params))
@@ -216,10 +224,15 @@ export async function graph<T>(
     ...(post ? { body: new URLSearchParams(params) } : {}),
   });
 }
-export const connection = (env: InstagramEnv, owner: string) =>
-  env.DB.prepare("SELECT * FROM instagram_connections WHERE user_id=?")
+export const connection = async (env: InstagramEnv, owner: string) => {
+  const c = await env.DB.prepare("SELECT * FROM instagram_connections WHERE user_id=?")
     .bind(owner)
     .first<Connection>();
+  if (c && (c.auth_method !== authMethod(env) ||
+      (env.INSTAGRAM_CONFIG_ID && c.config_id !== env.INSTAGRAM_CONFIG_ID)))
+    c.reconnect = 1;
+  return c;
+};
 export const uploads = async (env: InstagramEnv, id: string) =>
   (
     await env.DB.prepare(

@@ -67,6 +67,8 @@ export function InstagramSettings() {
           ? "Instagram berhasil dihubungkan."
           : result === "denied"
             ? "Izin Instagram dibatalkan. Kamu bisa mencoba lagi."
+            : result === "accounts"
+              ? "Bagikan tepat satu akun Instagram untuk dihubungkan, lalu coba lagi."
             : result === "permissions"
               ? "Izin publikasi belum diberikan. Hubungkan lagi dan izinkan akses publikasi."
               : "Koneksi gagal. Periksa pengaturan Meta App dan coba lagi.",
@@ -136,6 +138,8 @@ export function InstagramSettings() {
           <p className="muted">
             Gunakan akun Business atau Creator. Versi awal mendukung satu akun
             dan carousel 5–10 slide.
+            Saat menghubungkan, pilih portfolio bisnis dan bagikan satu akun
+            Instagram tujuan posting. Izin publikasi digunakan untuk menerbitkan carousel.
           </p>
           <div className="action-row">
             {(!status.connected || status.reconnect) && (

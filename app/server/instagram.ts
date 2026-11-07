@@ -14,10 +14,13 @@ import {
 import { get } from "./projects";
 import { advanceJob, refreshConnections } from "./instagram-publishing";
 import { cleanExpiredMedia, readMedia, saveMedia } from "./instagram-media";
+import { unifiedLogin, UnifiedLoginError } from "./instagram-unified";
 import {
   available,
+  authMethod,
   configured,
   connection,
+  connectionExpired,
   encryptToken,
   metaRequest,
   origin,
@@ -48,7 +51,7 @@ async function ownedJob(env: InstagramEnv, owner: string, id: string) {
 }
 async function usableConnection(env: InstagramEnv, owner: string) {
   const c = await connection(env, owner);
-  if (!c || c.reconnect || c.expires <= now())
+  if (!c || c.reconnect || connectionExpired(c))
     fail(409, "Hubungkan ulang Instagram di Pengaturan.");
   return c!;
 }
@@ -98,7 +101,7 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
         allowed: true,
         connected: !!c,
         username: c?.username,
-        reconnect: !!c && (!!c.reconnect || c.expires <= now()),
+        reconnect: !!c && (!!c.reconnect || connectionExpired(c)),
         expires: c?.expires,
       });
     }
@@ -121,12 +124,18 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
           now() + 600000,
         )
         .run();
-      const target = new URL("https://www.instagram.com/oauth/authorize");
+      const target = new URL(env.INSTAGRAM_CONFIG_ID
+        ? "https://www.facebook.com/dialog/oauth"
+        : "https://www.instagram.com/oauth/authorize");
       target.search = new URLSearchParams({
         client_id: env.INSTAGRAM_APP_ID!,
         redirect_uri: `${origin(env)}/api/instagram/callback`,
         response_type: "code",
-        scope: "instagram_business_basic,instagram_business_content_publish",
+        ...(env.INSTAGRAM_CONFIG_ID ? {
+          config_id: env.INSTAGRAM_CONFIG_ID,
+          override_default_response_type: "true",
+          prompt: "login",
+        } : { scope: "instagram_business_basic,instagram_business_content_publish" }),
         state,
       }).toString();
       return json({ url: target.href });
@@ -155,6 +164,17 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
       if (url.searchParams.has("error")) return back("denied");
       if (!url.searchParams.get("code")) return back("failed");
       try {
+        if (env.INSTAGRAM_CONFIG_ID) {
+          const linked = await unifiedLogin(env, url.searchParams.get("code")!);
+          await env.DB.prepare(
+            "INSERT INTO instagram_connections(user_id,id,account_id,username,token,expires,refreshed,reconnect,auth_method,client_business_id,config_id) VALUES (?,?,?,?,?,?,?,0,?,?,?) ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,account_id=excluded.account_id,username=excluded.username,token=excluded.token,expires=excluded.expires,refreshed=excluded.refreshed,reconnect=0,auth_method=excluded.auth_method,client_business_id=excluded.client_business_id,config_id=excluded.config_id",
+          ).bind(
+            user.id, crypto.randomUUID(), linked.account_id, linked.username,
+            await encryptToken(linked.access_token, env.INSTAGRAM_TOKEN_KEY!, user.id),
+            linked.expires, now(), authMethod(env), linked.client_business_id, env.INSTAGRAM_CONFIG_ID,
+          ).run();
+          return back("connected");
+        }
         type ShortToken = {
           access_token: string;
           user_id: string;
@@ -207,7 +227,7 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
         )
           return back("failed");
         await env.DB.prepare(
-          "INSERT INTO instagram_connections(user_id,id,account_id,username,token,expires,refreshed,reconnect) VALUES (?,?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,account_id=excluded.account_id,username=excluded.username,token=excluded.token,expires=excluded.expires,refreshed=excluded.refreshed,reconnect=0",
+          "INSERT INTO instagram_connections(user_id,id,account_id,username,token,expires,refreshed,reconnect) VALUES (?,?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,account_id=excluded.account_id,username=excluded.username,token=excluded.token,expires=excluded.expires,refreshed=excluded.refreshed,reconnect=0,auth_method='instagram_login',client_business_id=NULL,config_id=NULL",
         )
           .bind(
             user.id,
@@ -224,7 +244,8 @@ export const instagramHandler = (env: InstagramEnv, req: Request) =>
           )
           .run();
         return back("connected");
-      } catch {
+      } catch (error) {
+        if (error instanceof UnifiedLoginError) return back(error.result);
         return back("failed");
       }
     }

@@ -5,7 +5,14 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-11-07",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": { "INSTAGRAM_ENABLED": "false" },
+  "vars": {
+    "INSTAGRAM_ENABLED": "true",
+    "INSTAGRAM_APP_ID": "2316721635847016",
+    "INSTAGRAM_CONFIG_ID": "1673134827498184",
+    "INSTAGRAM_OWNER_ID": "92b38833-2651-48ca-a8b4-77758f81f90c",
+    "INSTAGRAM_API_VERSION": "v27.0",
+    "INSTAGRAM_ORIGIN": "https://carousel.hengker.tech"
+  },
   // Configure Meta App and secrets as described in docs/instagram.md.
   "build": {
     "command": "npm run build",

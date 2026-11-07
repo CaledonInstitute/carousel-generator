@@ -124,6 +124,7 @@ before(async () => {
     "0001_initial.sql",
     "0002_instagram.sql",
     "0003_instagram_d1_media.sql",
+    "0004_instagram_unified_login.sql",
   ]) {
     const sql = await readFile(
       new URL(`../../migrations/${file}`, import.meta.url),
@@ -308,6 +309,76 @@ test("Instagram OAuth state is session-bound, expiring, single-use, and handles 
   );
   globalThis.fetch = realFetch;
   await connectFixture();
+});
+
+test("Unified Login uses config ID, validates grants, selects one shared account and publishes with non-expiring system tokens", async () => {
+  env.INSTAGRAM_CONFIG_ID = "config-id";
+  let accounts = [{ id: "unified-account", username: "unified_tester" }];
+  let scopes = ["instagram_basic", "instagram_content_publish"];
+  let invalidToken = false;
+  const calls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    calls.push(url.pathname);
+    assert.equal(url.hostname, "graph.facebook.com");
+    if (url.pathname.endsWith("/oauth/access_token")) {
+      assert.equal(url.searchParams.get("client_id"), "app-id");
+      assert.equal(url.searchParams.get("redirect_uri"), `${base}/api/instagram/callback`);
+      return response({ access_token: "unified-private" });
+    }
+    if (url.pathname.endsWith("/debug_token"))
+      return response({ data: { is_valid: true, app_id: "app-id", scopes, expires_at: 0 } });
+    assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer unified-private");
+    if (url.pathname.endsWith("/me/assigned_instagram_accounts"))
+      return response({ data: accounts });
+    if (url.pathname.endsWith("/me")) return response({ client_business_id: "portfolio-id" });
+    if (url.pathname.endsWith("/unified-account/media"))
+      return invalidToken ? response({ error: { code: 190 } }, 400) : response({ id: "unified-child" });
+    assert.fail(`Unexpected API path ${url.pathname}`);
+  };
+  const callback = async () => {
+    const started = await (await call("/api/instagram/connect", "POST")).json() as { url: string };
+    const login = new URL(started.url);
+    assert.equal(login.origin + login.pathname, "https://www.facebook.com/dialog/oauth");
+    assert.equal(login.searchParams.get("config_id"), "config-id");
+    assert.equal(login.searchParams.get("client_id"), "app-id");
+    assert.equal(login.searchParams.has("scope"), false);
+    return call(`/api/instagram/callback?state=${login.searchParams.get("state")}&code=unified-code`);
+  };
+  try {
+    assert.equal((await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect, 1);
+    scopes = ["instagram_basic"];
+    assert.match((await callback()).headers.get("location")!, /instagram=permissions/);
+    scopes.push("instagram_content_publish");
+    accounts.push({ id: "second-account", username: "second" });
+    assert.match((await callback()).headers.get("location")!, /instagram=accounts/);
+    accounts = accounts.slice(0, 1);
+    assert.match((await callback()).headers.get("location")!, /instagram=connected/);
+    const c = (await connection(env, env.INSTAGRAM_OWNER_ID!))!;
+    assert.equal(c.account_id, "unified-account");
+    assert.equal(c.client_business_id, "portfolio-id");
+    assert.equal(c.config_id, "config-id");
+    assert.equal(c.auth_method, "unified_login");
+    assert.equal(c.expires, 0);
+    assert.equal(await decryptToken(c.token, key, c.user_id), "unified-private");
+    const beforeRefresh = calls.length;
+    await refreshConnections(env);
+    assert.equal(calls.length, beforeRefresh);
+    const status = await (await call("/api/instagram/connection")).json() as { reconnect: boolean };
+    assert.equal(status.reconnect, false);
+    const j = await createJob();
+    for (let i = 0; i < 5; i++) assert.equal((await upload(j.id, i)).status, 200);
+    assert.equal((await call(`/api/instagram/jobs/${j.id}/publish`, "POST")).status, 202);
+    assert.equal(await advanceJob(env, j.id), true);
+    assert.ok(calls.includes("/v26.0/unified-account/media"));
+    invalidToken = true;
+    await advanceJob(env, j.id);
+    assert.equal((await connection(env, env.INSTAGRAM_OWNER_ID!))!.reconnect, 1);
+  } finally {
+    delete env.INSTAGRAM_CONFIG_ID;
+    globalThis.fetch = realFetch;
+    await connectFixture();
+  }
 });
 
 test("Instagram jobs validate caption, slide count, revisions, ownership and idempotent snapshots", async () => {
