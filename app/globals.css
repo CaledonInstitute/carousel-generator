@@ -1,4 +1,108 @@
 @import "tailwindcss";
+.settings-instagram {
+  scroll-margin-top: 32px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+.settings-instagram .section-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.settings-instagram h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.settings-instagram p {
+  margin: 12px 0 18px;
+  line-height: 1.7;
+}
+.instagram-publisher {
+  display: grid;
+  gap: 16px;
+}
+.instagram-publisher p {
+  margin: 0;
+  line-height: 1.65;
+}
+.instagram-publisher a:not(.button) {
+  color: var(--blue);
+  text-decoration: underline;
+}
+.instagram-publisher textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: vertical;
+}
+.instagram-publisher .muted,
+.settings-instagram .muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.instagram-preview {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  padding-bottom: 10px;
+  scroll-snap-type: x mandatory;
+}
+.instagram-preview figure {
+  margin: 0;
+  flex: 0 0 180px;
+  scroll-snap-align: start;
+}
+.instagram-preview svg,
+.instagram-preview img {
+  width: 180px;
+  height: 180px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.instagram-preview figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.instagram-caption {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow: auto;
+}
+.instagram-job {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.instagram-history {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  font-size: 12px;
+}
+.instagram-history li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.instagram-publisher summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  .editor-header-actions {
+    flex-wrap: wrap;
+  }
+  .editor-header-actions > .button {
+    padding: 8px;
+  }
+}
 :root {
   font-family: "Manrope", sans-serif;
   color: #17191d;

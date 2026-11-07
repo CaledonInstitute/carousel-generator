@@ -17,9 +17,11 @@ import {
   ShieldCheck,
   Unplug,
   X,
+  Camera as Instagram,
 } from "lucide-react";
 import { api } from "./model";
 import { Header, Modal } from "./studio";
+import { InstagramSettings } from "./instagram";
 
 type Connections = {
   tokens: { id: string; name: string; created: number; expires: number }[];
@@ -196,6 +198,7 @@ export function Settings({ username }: { username: string }) {
           <nav aria-label="Bagian pengaturan">
             {[
               { id: "hubungkan", label: "Hubungkan MCP", icon: Plug },
+              { id: "instagram", label: "Instagram", icon: Instagram },
               { id: "akses-agent", label: "Akses agent", icon: ShieldCheck },
               { id: "token-pribadi", label: "Token pribadi", icon: KeyRound },
             ].map((item) => (
@@ -373,6 +376,7 @@ export function Settings({ username }: { username: string }) {
             </div>
           </section>
 
+          <InstagramSettings />
           <section id="akses-agent" className="settings-access">
             <div className="settings-section-title">
               <div>

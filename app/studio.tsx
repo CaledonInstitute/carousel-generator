@@ -26,6 +26,7 @@ import {
   GripVertical,
   Loader2,
   AlertCircle,
+  Camera as Instagram,
 } from "lucide-react";
 import {
   api,
@@ -48,6 +49,7 @@ import {
 } from "./model";
 import { SlideArt, slideWarnings } from "./slide";
 import { exportPNG } from "./transfer";
+import { InstagramPublisher } from "./instagram";
 
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
@@ -741,6 +743,7 @@ export function Editor() {
   const [error, setError] = useState("");
   const [review, setReview] = useState(false);
   const [download, setDownload] = useState(false);
+  const [instagram, setInstagram] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [revision, setRevision] = useState(0);
@@ -755,6 +758,51 @@ export function Editor() {
   const serverRevision = useRef<number | undefined>(undefined);
   const dragging = useRef<number | null>(null);
   const projectRef = useRef<Project | undefined>(undefined);
+
+  async function saveForInstagram(): Promise<Project> {
+    const deadline = Date.now() + 30000;
+    while (saving.current) {
+      if (Date.now() > deadline)
+        throw Error(
+          "Penyimpanan belum selesai. Coba lagi setelah proyek tersimpan.",
+        );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (conflictRef.current)
+      throw Error("Selesaikan konflik versi cloud sebelum posting.");
+    const source = projectRef.current!;
+    if (!dirty.current)
+      return structuredClone({ ...source, revision: serverRevision.current });
+    saving.current = true;
+    setStatus("Menyimpan…");
+    try {
+      const saved = await saveProject({
+        ...structuredClone(source),
+        revision: serverRevision.current,
+      });
+      serverRevision.current = saved.revision;
+      if (projectRef.current !== source) {
+        setRevision((v) => v + 1);
+        throw Error(
+          "Proyek berubah saat menyimpan. Periksa dan siapkan posting kembali.",
+        );
+      }
+      projectRef.current = saved;
+      dirty.current = false;
+      setProject(saved);
+      setStatus("Tersimpan di cloud");
+      return saved;
+    } catch (e) {
+      if (e instanceof ApiError && [409, 404].includes(e.status)) {
+        conflictRef.current = true;
+        setConflict(true);
+        setStatus("Perubahan bertabrakan");
+      } else setStatus("Gagal menyimpan");
+      throw e;
+    } finally {
+      saving.current = false;
+    }
+  }
 
   useEffect(() => {
     const id = decodeURIComponent(
@@ -1121,6 +1169,10 @@ export function Editor() {
           <Button secondary onClick={() => setReview(true)}>
             <Grid2X2 size={16} />
             <span>Tinjau</span>
+          </Button>
+          <Button secondary onClick={() => setInstagram(true)}>
+            <Instagram size={16} />
+            <span>Posting ke Instagram</span>
           </Button>
           <Button
             onClick={() => {
@@ -1640,6 +1692,13 @@ export function Editor() {
             ))}
           </div>
         </Modal>
+      )}
+      {instagram && (
+        <InstagramPublisher
+          project={p}
+          save={saveForInstagram}
+          close={() => setInstagram(false)}
+        />
       )}
       {download && (
         <Modal

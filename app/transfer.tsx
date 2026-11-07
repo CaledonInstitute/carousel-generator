@@ -58,7 +58,10 @@ const filename = (p: Project) =>
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .trim()
     .slice(0, 70) || "carousel";
-export async function exportPNG(p: Project, progress: (n: number) => void) {
+export async function* renderSlides(
+  p: Project,
+  format: "image/png" | "image/jpeg" = "image/png",
+): AsyncGenerator<Blob> {
   p = structuredClone(p);
   for (const [index, slide] of p.slides.entries()) {
     if (
@@ -92,7 +95,6 @@ export async function exportPNG(p: Project, progress: (n: number) => void) {
       fonts += `@font-face{font-family:'${family}';font-style:normal;font-weight:${i === 0 ? 400 : 700};src:url(${await dataURL(await response.blob())}) format('woff2');}`;
     }
   }
-  const zip = new JSZip();
   for (let i = 0; i < p.slides.length; i++) {
     const svg = renderToStaticMarkup(
       <SlideArt project={p} slide={p.slides[i]} index={i} fonts={fonts} />,
@@ -108,18 +110,28 @@ export async function exportPNG(p: Project, progress: (n: number) => void) {
       canvas.width = canvas.height = 1080;
       const context = canvas.getContext("2d");
       if (!context) throw Error("Browser tidak mendukung ekspor gambar.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, 1080, 1080);
       context.drawImage(img, 0, 0);
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob(
           (b) => (b ? resolve(b) : reject(Error("Gambar gagal dibuat."))),
-          "image/png",
+          format,
+          0.94,
         ),
       );
-      zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, blob);
-      progress(i + 1);
+      yield blob;
     } finally {
       URL.revokeObjectURL(url);
     }
+  }
+}
+export async function exportPNG(p: Project, progress: (n: number) => void) {
+  const zip = new JSZip();
+  let i = 0;
+  for await (const blob of renderSlides(p)) {
+    zip.file(`slide-${String(++i).padStart(2, "0")}.png`, blob);
+    progress(i);
   }
   download(await zip.generateAsync({ type: "blob" }), `${filename(p)}.zip`);
 }

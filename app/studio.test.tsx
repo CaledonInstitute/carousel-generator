@@ -16,7 +16,7 @@ import {
   effectiveStyle,
 } from "./model";
 import { SlideArt, slideWarnings, wrap } from "./slide";
-import { exportPNG } from "./transfer";
+import { exportPNG, renderSlides } from "./transfer";
 
 test("new projects have five blank slides; example content stays separate", () => {
   const p = newProject();
@@ -153,12 +153,15 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
           width: 0,
           height: 0,
           getContext: () => ({
+            fillRect() {},
             drawImage() {
               drawn++;
             },
           }),
-          toBlob: (cb: (b: Blob) => void) =>
-            cb(new Blob(["PNG"], { type: "image/png" })),
+          toBlob: (cb: (b: Blob) => void, format: string, quality: number) => {
+            if (format === "image/jpeg") assert.equal(quality, 0.94);
+            cb(new Blob([format], { type: format }));
+          },
         };
         canvases.push(canvas);
         return canvas;
@@ -214,6 +217,13 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
       "slide-04.png",
       "slide-05.png",
     ]);
+    const jpegSlides: Blob[] = [];
+    for await (const blob of renderSlides(p, "image/jpeg"))
+      jpegSlides.push(blob);
+    assert.equal(jpegSlides.length, 5);
+    assert.ok(jpegSlides.every((blob) => blob.type === "image/jpeg"));
+    assert.ok(canvases.every((c) => c.width === 1080 && c.height === 1080));
+    assert.equal(p.assets.photo, "https://images.example.org/square.png");
   } finally {
     Object.assign(globalThis, original);
   }

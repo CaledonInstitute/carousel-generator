@@ -40,6 +40,14 @@ try {
   const created = await api("/api/projects", "POST", newProject(), cookie);
   assert.equal(created.status, 201, await created.clone().text());
   const project = await created.json();
+  const instagram = await api(
+    "/api/instagram/connection",
+    "GET",
+    undefined,
+    cookie,
+  );
+  assert.equal(instagram.status, 200);
+  assert.equal((await instagram.json()).configured, false);
   for (const path of [
     "/",
     "/masuk",
@@ -59,7 +67,12 @@ try {
         assets.add(match[1]);
       if (path.startsWith("/editor/")) assert.match(html, /Membuka studio/);
       if (path === "/pengaturan") {
-        for (const anchor of ["hubungkan", "akses-agent", "token-pribadi"])
+        for (const anchor of [
+          "hubungkan",
+          "instagram",
+          "akses-agent",
+          "token-pribadi",
+        ])
           assert.ok(html.includes(`id="${anchor}"`));
         assert.ok(html.includes('aria-label="Bagian pengaturan"'));
         assert.ok(html.includes('id="mcp-url"'));

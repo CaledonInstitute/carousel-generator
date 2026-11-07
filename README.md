@@ -70,7 +70,11 @@ Jika Wrangler belum ada di PATH, gunakan `npx wrangler deploy` atau `npm run dep
 
 Implementasi tidak menjalankan deployment produksi. Verifikasi koneksi Claude.ai setelah deploy publik; pengujian lokal menggunakan client MCP dan runtime workerd.
 
-## Pemeriksaan
+## Instagram (pilot)
+
+Posting carousel langsung tersedia sebagai fitur opsional untuk satu pengguna dan satu akun profesional Instagram. Fitur nonaktif secara default; tidak ada kredensial Meta di repository. Pengaturan menyediakan koneksi Instagram dan editor menyediakan preview, caption, serta posting 5–10 slide. JPEG sementara dan progres disimpan di D1; proses dilanjutkan melalui permintaan dari dialog editor. Biarkan dialog terbuka sampai selesai, atau buka kembali untuk melanjutkan. Ikuti [panduan konfigurasi dan aktivasi](docs/instagram.md) sebelum mengaktifkannya. ZIP PNG tetap tersedia untuk proyek hingga 20 slide.
+
+## Pemeriksaan aplikasi
 
 ```sh
 npm test
