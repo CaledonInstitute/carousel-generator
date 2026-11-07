@@ -1,54 +1,84 @@
 # Ruang Slide
 
-Studio carousel edukasi berbahasa Indonesia. Buat 5–20 slide persegi 1080 × 1080, pilih enam komposisi, atur teks dan gambar, lalu unduh PNG dalam ZIP atau proyek yang dapat diedit kembali.
+Studio carousel edukasi berbahasa Indonesia, dengan akun username/password, proyek pribadi di Cloudflare D1, dan MCP untuk Claude.ai atau agent lain. Kanvas tetap 1080 × 1080 dengan 5–20 slide dan enam layout.
 
-## Menjalankan
+## Pengembangan
+
+Gunakan Node.js 22.12+ dan npm.
 
 ```sh
-npm install
+npm ci
+npm run db:local
 npm run dev
 ```
 
-Buka URL lokal yang dicetak Vite. Proyek memakai React, TypeScript, Vinext, dan Cloudflare Workers. Tidak membutuhkan API key atau akun.
+Daftar akun melalui `/daftar`. Email dan reset password tidak tersedia. Username tidak membedakan huruf besar/kecil, panjang 3–32 karakter (huruf, angka, `_`, `-`); password 12–128 karakter. Password menggunakan PBKDF2-SHA256 100.000 iterasi dan salt individual, sesuai batas Web Crypto Workers. Sesi berlaku 30 hari dengan cookie HttpOnly, Secure, SameSite=Lax. Gunakan localhost untuk development; jangan menonaktifkan Secure pada produksi.
+
+Proyek disimpan hanya di D1, terpisah berdasarkan pemilik. Tidak ada migrasi atau penghapusan IndexedDB lama. Impor/ekspor `.carousel` sudah dihapus. `/panduan` mengarahkan ke beranda.
+
+## Gambar dan editor
+
+Tempel URL HTTPS publik PNG, JPEG, atau WebP, maksimal 12 MB dan dimensi maksimal 16384 × 16384. Server memeriksa dimensi asli dan menolak rasio selain tepat 1:1. D1 menyimpan URL serta dimensi, tanpa R2 atau salinan gambar permanen. Link harus tetap tersedia dan dapat diambil tanpa login/cookie asal. URL yang memiliki masa berlaku dapat berhenti bekerja setelah kedaluwarsa.
+
+Gambar tampil utuh dalam area persegi, tanpa crop/zoom. Preview mengambil gambar melalui endpoint akun; ekspor mengambil dan memvalidasi ulang gambar, menyisipkannya sementara ke SVG, lalu menghasilkan ZIP berisi PNG. Jika link berubah atau mati, ekspor menampilkan nomor slide bermasalah.
+
+Autosave memakai versi proyek, bukan last-write-wins. Editor memeriksa pembaruan cloud setiap 5 detik ketika tab aktif. Konflik menghentikan autosave dan menawarkan versi cloud atau salinan baru. Jika offline, edit tetap berada di memori tab sampai berhasil disimpan; tidak tersedia mode offline persisten. Jangan menutup tab sebelum status tersimpan.
+
+## MCP dan koneksi agent
+
+Endpoint produksi: `https://carousel.hengker.tech/mcp` (Streamable HTTP, stateless, SDK MCP resmi). Endpoint baru tersedia setelah aplikasi ini dideploy.
+
+Di Claude.ai, tambahkan konektor kustom dengan URL tersebut, masuk memakai username/password Ruang Slide, lalu izinkan akses pada layar persetujuan. Agent tidak menerima password. OAuth mendukung discovery, dynamic client registration, authorization code dengan PKCE S256, access token 1 jam, dan refresh token berotasi hingga 90 hari per token. Resource OAuth wajib `https://carousel.hengker.tech/mcp`.
+
+Client yang mendukung bearer token juga dapat memakai token pribadi dari `/pengaturan`:
+
+```http
+Authorization: Bearer rs_TOKEN
+```
+
+Token hanya ditampilkan sekali, disimpan sebagai hash, dan berlaku 90 hari. Cabut token atau koneksi OAuth di Pengaturan untuk menghentikan akses. Setiap koneksi mendapat akses penuh terhadap proyek pemilik akun, termasuk penghapusan permanen.
+
+Tools:
+
+- `list_projects`: daftar proyek dan tautan editor.
+- `get_project`: isi lengkap dan revision terbaru.
+- `create_project`: buat proyek dari judul, 5–20 slide, style, dan assets berupa peta ID ke URL.
+- `update_project`: ganti isi proyek dengan ID dan revision dari pembacaan terbaru; pertahankan ID slide untuk menjaga identitas.
+- `delete_project`: hapus permanen dengan ID dan revision terbaru, ditandai sebagai aksi destruktif.
+
+Schema layout/style tersedia langsung dalam tool MCP. Layout: `sampul`, `gambar`, `daftar`, `langkah`, `perbandingan`, `penutup`. MCP dan web memakai layanan validasi, kepemilikan, gambar, dan penyimpanan yang sama. MCP tidak mengekspor PNG; buka tautan editor untuk mengunduh.
+
+API web memakai sesi cookie: `/api/auth/{register,login,logout,me}`, `/api/projects`, `/api/projects/:id`, `/api/images`, dan `/api/connections`. Mutasi web memerlukan Origin yang sama. Dokumen proyek memakai `version: 2`; `revision` adalah versi konkurensi server. Pembaruan usang mengembalikan HTTP 409 dan akses proyek bukan miliknya mengembalikan HTTP 404.
+
+## Cloudflare dan deployment
+
+Konfigurasi ada di `wrangler.jsonc`. D1 `carousel-generator-db` dengan binding `DB` sudah dibuat dan migrasi awal diterapkan pada akun Cloudflare yang dipakai saat implementasi. Development memakai D1 lokal yang terpisah. Untuk lingkungan/akun baru, buat D1 sendiri dan perbarui account/database ID pada konfigurasi.
+
+Untuk migrasi baru, terapkan sebelum deployment aplikasi yang memerlukannya:
+
+```sh
+npm run db:remote
+```
+
+Deployment aplikasi cukup:
+
+```sh
+wrangler deploy
+```
+
+Jika Wrangler belum ada di PATH, gunakan `npx wrangler deploy` atau `npm run deploy`. Perintah ini membangun aplikasi otomatis, termasuk ketika output build sebelumnya sudah tersedia. Script `prepare-deploy.mjs` menjaga perintah build dalam konfigurasi output Vite agar deployment berikutnya tidak memakai build lama. Domain tetap `carousel.hengker.tech`.
+
+Implementasi tidak menjalankan deployment produksi. Verifikasi koneksi Claude.ai setelah deploy publik; pengujian lokal menggunakan client MCP dan runtime workerd.
 
 ## Pemeriksaan
 
 ```sh
 npm test
 npx tsc --noEmit
-npm run build
 npm run test:workers
+npx wrangler deploy --dry-run
 ```
 
-Pengujian mencakup validasi impor, enam layout SVG, peringatan teks, IndexedDB, round-trip file proyek dengan gambar, serta alur ekspor PNG dengan campuran tiga font (canvas dimock). `test:workers` membangun ulang produksi, menjalankan preview Cloudflare dalam workerd, lalu memeriksa HTTP 200 tanpa halaman error untuk seluruh rute halaman, akses ulang, loading editor, aset halaman, dan enam berkas font ekspor. Server preview dihentikan otomatis setelah pemeriksaan.
+Pengujian mencakup isolasi pengguna, autentikasi/CSRF/rate limit, kedaluwarsa dan pencabutan token, OAuth PKCE dan refresh rotation, CRUD MCP, konflik versi, URL jaringan privat, dimensi/ukuran gambar, renderer enam layout, dan ekspor PNG dengan gambar URL serta tiga font. Pengujian canvas memakai mock; pemeriksaan visual dan unduhan browser tetap perlu dilakukan pada browser yang tersedia.
 
-## Preview dan deploy Cloudflare Workers
-
-Gunakan Node.js 22 atau lebih baru dan `npm ci` untuk memasang versi dari lockfile.
-
-```sh
-npm run preview
-```
-
-Perintah ini membangun produksi lalu menjalankan preview Workers lokal. Untuk build yang sudah tersedia, jalankan `npm run start`. Verifikasi di browser: buka langsung dan reload `/`, `/proyek`, `/panduan`, serta `/editor/<id>`; editor harus menampilkan “Membuka studio…” saat membaca IndexedDB, lalu proyek atau pesan proyek tidak ditemukan. Buat proyek dengan font Manrope, DM Sans, dan IBM Plex Sans pada slide berbeda, ekspor ZIP PNG, dan periksa gambar 1080 × 1080 serta fontnya.
-
-URL font ekspor dibuat hanya ketika ekspor PNG dipanggil di browser. Jangan membuat `new URL(..., import.meta.url)` untuk font pada tingkat modul: modul ini juga diimpor saat SSR di Workers.
-
-Setelah seluruh pemeriksaan lulus, autentikasi dan deploy ke akun Cloudflare yang dituju:
-
-```sh
-npx cf auth login
-npm run deploy
-```
-
-Konfigurasi Worker bersumber dari `cloudflare.config.ts`. Pilih akun lewat `CLOUDFLARE_ACCOUNT_ID`; di CI gunakan `CLOUDFLARE_API_TOKEN`. Deployment memakai integrasi Vinext yang membangun dan mengunggah output Workers. Setelah deploy, ulangi pemeriksaan akses langsung dan reload di `https://carousel.hengker.tech/`, termasuk semua rute di atas; respons dokumen harus HTTP 200 tanpa kilatan halaman error. Proyek tetap tersimpan di browser pada origin tersebut.
-
-## Data dan ekspor
-
-- Proyek dan gambar tersimpan di IndexedDB browser pengguna, bukan di server. Membersihkan data situs menghapus proyek lokal.
-- File `.carousel` adalah ZIP dengan `project.json` versi 1 dan aset gambar. Impor membuat proyek dengan identitas baru.
-- Unduhan gambar berisi `slide-01.png` dan seterusnya, tanpa watermark atau placeholder editor.
-- Preview dan ekspor memakai renderer SVG yang sama; font Manrope, DM Sans, dan IBM Plex Sans disertakan secara lokal.
-- Gambar JPG, PNG, dan WebP hingga 12 MB per file. Impor proyek dibatasi 100 MB.
-
-Versi ini tidak mencakup login, AI, pembayaran, atau publikasi Instagram. Deployment tidak dilakukan sebagai bagian implementasi lokal ini.
+Smoke test membangun aplikasi dan menjalankannya di workerd, memeriksa pengalihan login, registrasi, CRUD D1, MCP/discovery, reload halaman, aset, dan enam font. Akun pengujian hanya dibuat pada database lokal.

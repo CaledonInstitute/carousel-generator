@@ -7,7 +7,6 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
-  Upload,
   Download,
   Undo2,
   Redo2,
@@ -17,18 +16,19 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
-  ImagePlus,
   Settings2,
   FileText,
   Monitor,
   CheckCheck,
   ExternalLink,
-  FolderOpen,
   GripVertical,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 import {
+  api,
+  ApiError,
+  imageSource,
   newProject,
   exampleProject,
   newSlide,
@@ -45,7 +45,7 @@ import {
   type Layout,
 } from "./model";
 import { SlideArt, slideWarnings } from "./slide";
-import { dataURL, exportPNG, exportProject, importProject } from "./transfer";
+import { exportPNG } from "./transfer";
 
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
@@ -64,6 +64,14 @@ function Logo({ compact = false }: { compact?: boolean }) {
   );
 }
 export function Header({ active = "" }: { active?: string }) {
+  const [user, setUser] = useState<{ username: string }>();
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(async (r) => {
+        if (r.ok) setUser((await r.json()) as { username: string });
+      })
+      .catch(() => {});
+  }, []);
   return (
     <header className="site-header">
       <Logo />
@@ -74,17 +82,27 @@ export function Header({ active = "" }: { active?: string }) {
         <a className={active === "projects" ? "active" : ""} href="/proyek">
           Proyek saya
         </a>
-        <a
-          className={active === "guides" ? "active" : ""}
-          href="/panduan"
-          aria-current={active === "guides" ? "page" : undefined}
-        >
-          Panduan
+        <a className={active === "settings" ? "active" : ""} href="/pengaturan">
+          Pengaturan
         </a>
       </nav>
-      <a href="/proyek" className="header-action">
-        Buka studio <ArrowRight size={16} />
-      </a>
+      <div className="account-nav">
+        {user ? (
+          <>
+            <span className="username">{user.username}</span>
+            <button
+              onClick={async () => {
+                await api("/api/auth/logout", { method: "POST" });
+                location.assign("/masuk");
+              }}
+            >
+              Keluar
+            </button>
+          </>
+        ) : (
+          <a href="/masuk">Masuk</a>
+        )}
+      </div>
     </header>
   );
 }
@@ -229,7 +247,7 @@ export function Home() {
       await create(example);
     } catch {
       setError(
-        "Penyimpanan browser belum tersedia. Izinkan penyimpanan situs lalu coba lagi.",
+        "Proyek belum bisa dibuat. Masuk dan periksa koneksi internetmu.",
       );
       setBusy(false);
     }
@@ -428,7 +446,7 @@ export function Home() {
           <Button onClick={() => start()} disabled={busy}>
             Buat carousel pertamamu <ArrowRight size={18} />
           </Button>
-          <p>Tanpa daftar. Langsung berkarya.</p>
+          <p>Simpan di cloud. Lanjutkan dari mana saja.</p>
         </section>
       </main>
       <footer>
@@ -446,14 +464,13 @@ export function Projects() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Project>();
-  const input = useRef<HTMLInputElement>(null);
   async function refresh() {
     try {
       setProjects((await listProjects()).sort((a, b) => b.updated - a.updated));
       setError("");
     } catch {
       setError(
-        "Proyek belum bisa dibaca. Periksa izin penyimpanan browser lalu muat ulang.",
+        "Proyek belum bisa dibaca. Periksa koneksi internet lalu muat ulang.",
       );
     } finally {
       setLoading(false);
@@ -485,13 +502,6 @@ export function Projects() {
             <p>Gagasan yang sedang kamu bentuk, semuanya di sini.</p>
           </div>
           <div className="action-row">
-            <Button
-              secondary
-              onClick={() => input.current?.click()}
-              disabled={busy}
-            >
-              <Upload size={17} /> Impor proyek
-            </Button>
             <Button onClick={() => action(() => create())} disabled={busy}>
               <Plus size={18} /> Buat carousel
             </Button>
@@ -500,29 +510,13 @@ export function Projects() {
         <div className="storage-notice">
           <Monitor size={18} />
           <p>
-            Disimpan di browser ini.{" "}
+            Tersimpan di cloud.{" "}
             <span>
-              Unduh file proyek untuk mencadangkan atau melanjutkan di perangkat
-              lain.
+              Buka proyek dari perangkat lain atau hubungkan agent melalui
+              Pengaturan.
             </span>
           </p>
         </div>
-        <input
-          ref={input}
-          type="file"
-          accept=".carousel"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file)
-              void action(async () => {
-                const p = await importProject(file);
-                await saveProject(p);
-                await refresh();
-              });
-            e.target.value = "";
-          }}
-        />
         <ErrorNote message={error} />
         {loading ? (
           <div className="empty-state">
@@ -573,6 +567,7 @@ export function Projects() {
                           await saveProject({
                             ...structuredClone(p),
                             id: uid(),
+                            revision: undefined,
                             title: p.title + " (salinan)",
                             updated: Date.now(),
                           });
@@ -581,13 +576,6 @@ export function Projects() {
                       }
                     >
                       <Copy size={16} />
-                    </IconButton>
-                    <IconButton
-                      label={`Unduh file proyek ${p.title}`}
-                      disabled={busy}
-                      onClick={() => action(() => exportProject(p))}
-                    >
-                      <Download size={16} />
                     </IconButton>
                     <IconButton
                       label={`Hapus ${p.title}`}
@@ -610,8 +598,8 @@ export function Projects() {
       {pendingDelete && (
         <Modal title="Hapus proyek?" close={() => setPendingDelete(undefined)}>
           <p>
-            “{pendingDelete.title}” akan dihapus dari perangkat ini. Tindakan
-            ini tidak bisa dibatalkan.
+            “{pendingDelete.title}” akan dihapus dari akunmu. Tindakan ini tidak
+            bisa dibatalkan.
           </p>
           <div className="action-row">
             <Button secondary onClick={() => setPendingDelete(undefined)}>
@@ -620,7 +608,10 @@ export function Projects() {
             <Button
               onClick={() =>
                 action(async () => {
-                  await deleteProject(pendingDelete.id);
+                  await deleteProject(
+                    pendingDelete.id,
+                    pendingDelete.revision!,
+                  );
                   setPendingDelete(undefined);
                   await refresh();
                 })
@@ -643,7 +634,7 @@ export function Editor() {
   const [tab, setTab] = useState("isi");
   const [mobile, setMobile] = useState("kanvas");
   const [scope, setScope] = useState("semua");
-  const [status, setStatus] = useState("Tersimpan di perangkat");
+  const [status, setStatus] = useState("Tersimpan di cloud");
   const [error, setError] = useState("");
   const [review, setReview] = useState(false);
   const [download, setDownload] = useState(false);
@@ -652,76 +643,184 @@ export function Editor() {
   const [revision, setRevision] = useState(0);
   const past = useRef<Project[]>([]),
     future = useRef<Project[]>([]);
-  const upload = useRef<HTMLInputElement>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const conflictRef = useRef(false);
+  const dirty = useRef(false);
+  const saving = useRef(false);
+  const serverRevision = useRef<number | undefined>(undefined);
   const dragging = useRef<number | null>(null);
   const projectRef = useRef<Project | undefined>(undefined);
-  const saveQueue = useRef(Promise.resolve());
+
   useEffect(() => {
     const id = decodeURIComponent(
       window.location.pathname.split("/").filter(Boolean).pop() || "",
     );
     getProject(id)
       .then((p) => {
-        setProject(p);
         projectRef.current = p;
-        if (!p)
-          setError(
-            "Proyek tidak ditemukan di browser ini. Buka Proyek saya atau impor file cadangan.",
-          );
+        serverRevision.current = p.revision;
+        setProject(p);
       })
-      .catch(() =>
-        setError(
-          "Proyek gagal dibuka. Periksa izin penyimpanan browser dan muat ulang.",
-        ),
-      )
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
-    if (!project) return;
-    projectRef.current = project;
+    if (!project || !dirty.current || conflictRef.current) return;
     setStatus("Menyimpan…");
-    const timer = setTimeout(() => {
-      const snapshot = project;
-      saveQueue.current = saveQueue.current
-        .catch(() => {})
-        .then(() => saveProject(snapshot))
-        .then(() => {
-          if (projectRef.current === snapshot)
-            setStatus("Tersimpan di perangkat");
-        })
-        .catch(() => {
+    const timer = setTimeout(async () => {
+      if (saving.current || conflictRef.current) return;
+      saving.current = true;
+      const source = projectRef.current!;
+      const snapshot = {
+        ...structuredClone(source),
+        revision: serverRevision.current,
+      };
+      try {
+        const saved = await saveProject(snapshot);
+        serverRevision.current = saved.revision;
+        if (projectRef.current === source) {
+          dirty.current = false;
+          projectRef.current = saved;
+          setProject(saved);
+          setStatus("Tersimpan di cloud");
+        } else setRevision((v) => v + 1);
+      } catch (e) {
+        if (e instanceof ApiError && [409, 404].includes(e.status)) {
+          conflictRef.current = true;
+          setConflict(true);
+          setStatus("Perubahan bertabrakan");
+        } else {
           setStatus("Gagal menyimpan");
-        });
+          setError((e as Error).message);
+        }
+      } finally {
+        saving.current = false;
+      }
     }, 500);
     return () => clearTimeout(timer);
   }, [project, revision]);
   useEffect(() => {
-    const flush = () => {
+    let stopped = false;
+    const timer = setInterval(async () => {
       const p = projectRef.current;
-      if (p) void saveProject(p).catch(() => {});
+      if (
+        document.visibilityState !== "visible" ||
+        !p ||
+        saving.current ||
+        conflictRef.current
+      )
+        return;
+      try {
+        const latest = await getProject(p.id);
+        if (stopped || saving.current) return;
+        if (latest.revision! <= serverRevision.current!) {
+          if (!dirty.current) setStatus("Tersimpan di cloud");
+          return;
+        }
+        if (dirty.current) {
+          conflictRef.current = true;
+          setConflict(true);
+          setStatus("Perubahan bertabrakan");
+        } else {
+          serverRevision.current = latest.revision;
+          projectRef.current = latest;
+          past.current = [];
+          future.current = [];
+          setActive((i) => Math.min(i, latest.slides.length - 1));
+          setProject(latest);
+          setStatus("Tersimpan di cloud");
+        }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) {
+          conflictRef.current = true;
+          setConflict(true);
+          setStatus("Proyek dihapus di cloud");
+        } else if (!stopped) setStatus("Gagal memeriksa cloud");
+      }
+    }, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
     };
+  }, []);
+  useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
-      if (projectRef.current && status !== "Tersimpan di perangkat") {
-        flush();
+      if (dirty.current) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", before);
-    document.addEventListener("visibilitychange", flush);
-    return () => {
-      window.removeEventListener("beforeunload", before);
-      document.removeEventListener("visibilitychange", flush);
-    };
-  }, [status]);
+    return () => window.removeEventListener("beforeunload", before);
+  }, []);
+  async function resolveConflict(copy: boolean) {
+    if (saving.current) return;
+    setBusy(true);
+    try {
+      if (copy) {
+        const source = projectRef.current!;
+        const p = {
+          ...structuredClone(source),
+          id: uid(),
+          revision: undefined,
+          title: projectRef.current!.title + " (salinan)",
+        };
+        await saveProject(p);
+        if (projectRef.current !== source) {
+          setError(
+            "Salinan telah dibuat. Ada edit baru di editor ini; simpan lagi sebelum berpindah.",
+          );
+          return;
+        }
+        dirty.current = false;
+        location.assign(`/editor/${p.id}`);
+      } else {
+        let latest: Project;
+        try {
+          latest = await getProject(projectRef.current!.id);
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 404) {
+            dirty.current = false;
+            location.assign("/proyek");
+            return;
+          }
+          throw e;
+        }
+        dirty.current = false;
+        serverRevision.current = latest.revision;
+        projectRef.current = latest;
+        past.current = [];
+        future.current = [];
+        setActive(0);
+        setProject(latest);
+        conflictRef.current = false;
+        setConflict(false);
+        setStatus("Tersimpan di cloud");
+        setError("");
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function change(fn: (p: Project) => void) {
-    if (!project) return;
-    past.current.push(structuredClone(project));
+    const current = projectRef.current;
+    if (!current) return;
+    past.current.push(structuredClone(current));
     if (past.current.length > 100) past.current.shift();
     future.current = [];
-    const next = structuredClone(project);
+    const next = structuredClone(current);
     fn(next);
+    const used = new Set(next.slides.map((s) => s.image));
+    next.assets = Object.fromEntries(
+      Object.entries(next.assets).filter(([id]) => used.has(id)),
+    );
     next.updated = Date.now();
+    dirty.current = true;
+    projectRef.current = next;
     setProject(next);
     setError("");
   }
@@ -730,14 +829,20 @@ export function Editor() {
     future.current.push(project);
     const p = past.current.pop()!;
     setActive(Math.min(active, p.slides.length - 1));
-    setProject({ ...p, updated: Date.now() });
+    const next = { ...p, updated: Date.now() };
+    dirty.current = true;
+    projectRef.current = next;
+    setProject(next);
   }
   function redo() {
     if (!project || !future.current.length) return;
     past.current.push(project);
     const p = future.current.pop()!;
     setActive(Math.min(active, p.slides.length - 1));
-    setProject({ ...p, updated: Date.now() });
+    const next = { ...p, updated: Date.now() };
+    dirty.current = true;
+    projectRef.current = next;
+    setProject(next);
   }
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -800,34 +905,35 @@ export function Editor() {
     });
     setActive(to);
   }
-  async function addImage(file: File) {
+  async function addImage() {
+    const targetSlide = s.id;
+    setImageBusy(true);
+    setError("");
     try {
-      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type))
-        throw Error("Gunakan gambar JPG, PNG, atau WebP.");
-      if (file.size > 12 * 1024 * 1024)
-        throw Error("Gambar terlalu besar. Maksimal 12 MB per gambar.");
-      const value = await dataURL(file);
-      const img = new Image();
-      img.src = value;
-      await img.decode();
-      const id = uid();
+      const url = imageUrl.trim();
+      const info = await api<{ width: number; height: number }>("/api/images", {
+        method: "POST",
+        body: JSON.stringify({ url }),
+      });
       change((p) => {
-        p.assets[id] = value;
-        Object.assign(p.slides[active], {
+        const slide = p.slides.find((s) => s.id === targetSlide);
+        if (!slide) return;
+        const id = uid();
+        p.assets[id] = url;
+        Object.assign(slide, {
           image: id,
-          imageWidth: img.naturalWidth,
-          imageHeight: img.naturalHeight,
+          imageWidth: info.width,
+          imageHeight: info.height,
           zoom: 1,
           x: 50,
           y: 50,
         });
       });
+      setImageUrl("");
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Gambar gagal dibuka. Pilih file lain.",
-      );
+      setError((e as Error).message);
+    } finally {
+      setImageBusy(false);
     }
   }
   function split() {
@@ -877,7 +983,7 @@ export function Editor() {
             }
             role="status"
           >
-            {status === "Tersimpan di perangkat" ? (
+            {status === "Tersimpan di cloud" ? (
               <CheckCheck size={13} />
             ) : status === "Gagal menyimpan" ? (
               <AlertCircle size={13} />
@@ -924,6 +1030,17 @@ export function Editor() {
           </Button>
         </div>
       </header>
+      {conflict && (
+        <div className="conflict-banner" role="alert">
+          <p>Proyek di cloud telah berubah. Edit lokal belum disimpan.</p>
+          <button disabled={busy} onClick={() => void resolveConflict(false)}>
+            Muat versi cloud
+          </button>
+          <button disabled={busy} onClick={() => void resolveConflict(true)}>
+            Simpan sebagai proyek baru
+          </button>
+        </div>
+      )}
       <div className="mobile-tools">
         <button
           className={mobile === "slides" ? "active" : ""}
@@ -1114,15 +1231,6 @@ export function Editor() {
             </button>
           </div>
           <div className="inspector-body">
-            <a
-              className="editor-guide-link"
-              href="/panduan"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Bantu susun materi dengan AI <ExternalLink size={11} />
-              <span className="sr-only"> (buka tab baru)</span>
-            </a>
             {tab === "isi" ? (
               <>
                 <div className="field">
@@ -1194,67 +1302,55 @@ export function Editor() {
                 )}
                 {s.layout === "gambar" && (
                   <div className="field">
-                    <label>Gambar</label>
-                    <input
-                      hidden
-                      ref={upload}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(e) => {
-                        if (e.target.files?.[0])
-                          void addImage(e.target.files[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                    <button
-                      className="image-upload"
-                      onClick={() => upload.current?.click()}
-                    >
-                      {s.image ? (
-                        <>
-                          <img
-                            src={p.assets[s.image]}
-                            alt="Gambar yang dipilih"
-                          />
-                          <span>
-                            <Upload size={16} /> Ganti gambar
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <ImagePlus size={25} />
-                          <strong>Tambahkan gambar</strong>
-                          <span>JPG, PNG, WebP · maks. 12 MB</span>
-                        </>
-                      )}
-                    </button>
+                    <label htmlFor="image-url">URL gambar persegi</label>
+                    <div className="image-url-actions">
+                      <input
+                        id="image-url"
+                        type="url"
+                        value={imageUrl}
+                        placeholder="https://…/gambar.png"
+                        onChange={(e) => setImageUrl(e.target.value)}
+                      />
+                      <button
+                        className="button"
+                        disabled={imageBusy || !imageUrl.trim()}
+                        onClick={() => void addImage()}
+                      >
+                        {imageBusy
+                          ? "Memeriksa gambar…"
+                          : s.image
+                            ? "Ganti gambar"
+                            : "Tambahkan gambar"}
+                      </button>
+                    </div>
+                    <p className="field-help">
+                      Wajib 1:1. PNG, JPEG, WebP, maksimal 12 MB. Gunakan link
+                      gambar publik.
+                    </p>
                     {s.image && (
                       <>
-                        <Range
-                          label="Zoom gambar"
-                          min={1}
-                          max={3}
-                          step={0.05}
-                          value={s.zoom}
-                          onChange={(v) => updateSlide({ zoom: v })}
+                        <img
+                          className="image-url-preview"
+                          src={imageSource(p.assets[s.image])}
+                          alt="Gambar slide"
+                          onError={() =>
+                            setError(
+                              "Gambar gagal dimuat. Periksa URL atau ganti gambar.",
+                            )
+                          }
                         />
-                        <Range
-                          label="Posisi horizontal"
-                          min={0}
-                          max={100}
-                          value={s.x}
-                          onChange={(v) => updateSlide({ x: v })}
-                        />
-                        <Range
-                          label="Posisi vertikal"
-                          min={0}
-                          max={100}
-                          value={s.y}
-                          onChange={(v) => updateSlide({ y: v })}
-                        />
+                        <p className="field-help">
+                          {s.imageWidth} × {s.imageHeight} piksel
+                        </p>
                         <button
                           className="danger-link"
-                          onClick={() => updateSlide({ image: undefined })}
+                          onClick={() =>
+                            updateSlide({
+                              image: undefined,
+                              imageWidth: undefined,
+                              imageHeight: undefined,
+                            })
+                          }
                         >
                           Hapus gambar
                         </button>
@@ -1502,30 +1598,6 @@ export function Editor() {
                   : "Unduh semua slide"}
               </strong>
               <small>ZIP berisi PNG · 1080 × 1080 px</small>
-            </span>
-            <Download size={18} />
-          </button>
-          <button
-            className="download-option"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await exportProject(p);
-              } catch {
-                setError("File proyek gagal diunduh. Coba lagi.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <span className="download-icon">
-              <FolderOpen />
-            </span>
-            <span>
-              <strong>Unduh file proyek</strong>
-              <small>File .carousel · dapat diedit kembali</small>
             </span>
             <Download size={18} />
           </button>

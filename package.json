@@ -1,44 +1,53 @@
 {
-	"name": "carousel-generator",
-	"version": "0.1.0",
-	"private": true,
-	"packageManager": "npm",
-	"dependencies": {
-		"@fontsource/dm-sans": "^5.3.0",
-		"@fontsource/ibm-plex-sans": "^5.3.0",
-		"@fontsource/manrope": "^5.3.0",
-		"@vinext/cloudflare": "latest",
-		"jszip": "^3.10.2",
-		"lucide-react": "^1.70.0",
-		"react": "latest",
-		"react-dom": "latest",
-		"react-server-dom-webpack": "latest",
-		"vinext": "latest"
-	},
-	"devDependencies": {
-		"@cloudflare/vite-plugin": "beta",
-		"@tailwindcss/postcss": "latest",
-		"@types/node": "latest",
-		"@types/react": "latest",
-		"@types/react-dom": "latest",
-		"@vitejs/plugin-react": "latest",
-		"@vitejs/plugin-rsc": "latest",
-		"cf": "^1.0.0-beta.28",
-		"fake-indexeddb": "^6.2.7",
-		"tailwindcss": "latest",
-		"tsx": "^4.23.15",
-		"typescript": "latest",
-		"vite": "8.3.0"
-	},
-	"type": "module",
-	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"start": "vite preview",
-		"deploy": "vinext-cloudflare deploy",
-		"preview": "npm run build && npm run start --",
-		"cf-typegen": "cf workers types",
-		"test": "tsx --test app/studio.test.tsx",
-		"test:workers": "npm run build && node scripts/smoke-workers.mjs"
-	}
+  "name": "carousel-generator",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm",
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@vinext/cloudflare": "latest",
+    "image-size": "^2.1.0",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.70.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-server-dom-webpack": "latest",
+    "vinext": "latest",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.67.0",
+    "@cloudflare/workers-types": "^5.20261107.1",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "@vitejs/plugin-rsc": "latest",
+    "miniflare": "^5.20261104.0-beta",
+    "tailwindcss": "latest",
+    "tsx": "^4.23.15",
+    "typescript": "latest",
+    "vite": "^8.3.6",
+    "wrangler": "^4.158.0"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && node scripts/prepare-deploy.mjs",
+    "start": "vite preview",
+    "deploy": "wrangler deploy",
+    "preview": "npm run build && npm run start --",
+    "cf-typegen": "wrangler types",
+    "test": "tsx --test app/studio.test.tsx app/server/*.test.ts",
+    "test:workers": "npm run build && node --import tsx scripts/smoke-workers.mjs",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote"
+  },
+  "overrides": {
+    "fflate": "^0.8.3"
+  }
 }

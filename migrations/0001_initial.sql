@@ -1,0 +1,11 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT NOT NULL COLLATE NOCASE UNIQUE, salt TEXT NOT NULL, password_hash TEXT NOT NULL, created INTEGER NOT NULL);
+CREATE TABLE sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
+CREATE TABLE projects (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, revision INTEGER NOT NULL, updated INTEGER NOT NULL, document TEXT NOT NULL);
+CREATE INDEX projects_owner ON projects(user_id, updated);
+CREATE TABLE oauth_clients (id TEXT PRIMARY KEY, name TEXT NOT NULL, redirects TEXT NOT NULL);
+CREATE TABLE grants (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, client_id TEXT NOT NULL REFERENCES oauth_clients(id), created INTEGER NOT NULL, revoked INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE tokens (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL, kind TEXT NOT NULL, grant_id TEXT REFERENCES grants(id), expires INTEGER NOT NULL, created INTEGER NOT NULL);
+CREATE INDEX tokens_owner ON tokens(user_id);
+CREATE TABLE oauth_codes (hash TEXT PRIMARY KEY, grant_id TEXT NOT NULL REFERENCES grants(id), challenge TEXT NOT NULL, redirect TEXT NOT NULL, resource TEXT NOT NULL, expires INTEGER NOT NULL);
+CREATE TABLE rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);

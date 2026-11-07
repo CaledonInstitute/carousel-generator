@@ -1,3 +1,4 @@
+import { imageSource } from "./model";
 import React from "react";
 import { effectiveStyle, type Project, type Slide } from "./model";
 
@@ -149,12 +150,7 @@ export function SlideArt({
     );
   }
   const imageY = Math.min(bodyTop - 35, 520),
-    imageH = 400;
-  const scale =
-    Math.max(414 / (s.imageWidth || 414), 400 / (s.imageHeight || 400)) *
-    s.zoom;
-  const imageWidth = (s.imageWidth || 414) * scale,
-    imageHeight = (s.imageHeight || 400) * scale;
+    imageH = 414;
   const blocks = s.body.split("\n");
   let listY = bodyTop;
   return (
@@ -276,16 +272,16 @@ export function SlideArt({
               y={imageY}
               width="414"
               height={imageH}
-              viewBox="0 0 414 400"
+              viewBox="0 0 414 414"
               overflow="hidden"
             >
               <image
-                href={p.assets[s.image]}
-                x={((414 - imageWidth) * s.x) / 100}
-                y={((400 - imageHeight) * s.y) / 100}
-                width={imageWidth}
-                height={imageHeight}
-                preserveAspectRatio="none"
+                href={imageSource(p.assets[s.image])}
+                x={0}
+                y={0}
+                width={414}
+                height={414}
+                preserveAspectRatio="xMidYMid meet"
               />
             </svg>
           ) : (

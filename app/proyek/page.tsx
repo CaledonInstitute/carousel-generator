@@ -1,4 +1,6 @@
 import { Projects } from "../studio";
-export default function Page() {
+import { protectPage } from "../server/page-auth";
+export default async function Page() {
+  await protectPage("/proyek");
   return <Projects />;
 }

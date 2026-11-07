@@ -2,7 +2,6 @@ import React from "react";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolveObjectURL } from "node:buffer";
-import "fake-indexeddb/auto";
 import { renderToStaticMarkup } from "react-dom/server";
 import JSZip from "jszip";
 import {
@@ -17,7 +16,7 @@ import {
   effectiveStyle,
 } from "./model";
 import { SlideArt, slideWarnings, wrap } from "./slide";
-import { exportProject, importProject, exportPNG } from "./transfer";
+import { exportPNG } from "./transfer";
 
 test("new projects have five blank slides; example content stays separate", () => {
   const p = newProject();
@@ -28,7 +27,7 @@ test("new projects have five blank slides; example content stays separate", () =
   assert.ok(p.slides.every((s) => !s.title && !s.body));
   assert.ok(exampleProject().slides.every((s) => s.title));
 });
-test("import validation rejects slide limits, invalid layouts, styles and missing assets", () => {
+test("project validation rejects slide limits, invalid layouts, styles and missing assets", () => {
   for (const count of [0, 4, 21]) {
     const p = newProject();
     p.slides = Array.from({ length: count }, () => newSlide());
@@ -49,29 +48,6 @@ test("import validation rejects slide limits, invalid layouts, styles and missin
   const unsafe = newProject();
   unsafe.style.accent = "url(https://example.com)";
   assert.throws(() => validateProject(unsafe));
-});
-test("IndexedDB saves text, style, order, crop and assets across reads; duplicate is independent", async () => {
-  const p = exampleProject();
-  p.assets.photo = "data:image/png;base64,aGVsbG8=";
-  Object.assign(p.slides[1], { image: "photo", zoom: 1.7, x: 25, y: 80 });
-  p.slides[0].style = { accent: "#123456" };
-  p.slides.reverse();
-  await saveProject(p);
-  const read = await getProject(p.id);
-  assert.deepEqual(read, p);
-  const copy = structuredClone(p);
-  copy.id = crypto.randomUUID();
-  copy.title = "Salinan";
-  await saveProject(copy);
-  assert.equal((await listProjects()).length, 2);
-  copy.slides[0].title = "Berubah";
-  assert.notEqual(
-    (await getProject(p.id))?.slides[0].title,
-    copy.slides[0].title,
-  );
-  await deleteProject(copy.id);
-  await deleteProject(p.id);
-  assert.equal((await listProjects()).length, 0);
 });
 test("renderer covers six layouts, escapes content, and excludes editor placeholders from export", () => {
   const p = newProject();
@@ -116,21 +92,20 @@ test("text wrapping preserves long words, whitespace-separated text and explicit
   assert.equal(effectiveStyle(p, p.slides[0]).size, 40);
   assert.equal(p.style.size, 32);
 });
-test("project archive round-trip includes embedded image and keeps editable content", async () => {
-  let downloaded: Blob | undefined;
-  const oldDocument = globalThis.document;
+test("PNG export waits for fonts and images and writes ordered 1080-square files", async () => {
+  const original = {
+    document: globalThis.document,
+    Image: globalThis.Image,
+    fetch: globalThis.fetch,
+    FileReader: globalThis.FileReader,
+  };
+  let result: Blob | undefined;
+  let drawn = 0;
+  const fontRequests: string[] = [];
+  const imageRequests: string[] = [];
+  const renderedSVGs: string[] = [];
+  const canvases: { width: number; height: number }[] = [];
   Object.assign(globalThis, {
-    document: {
-      createElement: () => ({
-        href: "",
-        download: "",
-        click() {
-          downloaded = resolveObjectURL(
-            (this as { href: string }).href,
-          ) as unknown as Blob;
-        },
-      }),
-    },
     FileReader: class {
       result = "";
       onload?: () => void;
@@ -145,57 +120,6 @@ test("project archive round-trip includes embedded image and keeps editable cont
           .catch(() => this.onerror?.());
       }
     },
-  });
-  try {
-    const p = exampleProject();
-    p.assets.photo =
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
-    Object.assign(p.slides[1], {
-      image: "photo",
-      imageWidth: 1,
-      imageHeight: 1,
-      zoom: 2,
-      x: 10,
-      y: 75,
-    });
-    await exportProject(p);
-    assert.ok(downloaded);
-    const copy = await importProject(new File([downloaded!], "test.carousel"));
-    assert.notEqual(copy.id, p.id);
-    assert.deepEqual(copy.slides, p.slides);
-    assert.deepEqual(copy.assets, p.assets);
-    assert.equal(copy.title, p.title);
-  } finally {
-    Object.assign(globalThis, { document: oldDocument });
-  }
-});
-test("corrupt or incomplete archives are rejected with actionable errors", async () => {
-  await assert.rejects(importProject(new File(["invalid"], "bad.carousel")));
-  const zip = new JSZip();
-  zip.file("other.json", "{}");
-  await assert.rejects(
-    importProject(
-      new File(
-        [await zip.generateAsync({ type: "arraybuffer" })],
-        "empty.carousel",
-      ),
-    ),
-    /data proyek/,
-  );
-});
-
-test("PNG export waits for fonts and images and writes ordered 1080-square files", async () => {
-  const original = {
-    document: globalThis.document,
-    Image: globalThis.Image,
-    fetch: globalThis.fetch,
-  };
-  let result: Blob | undefined;
-  let drawn = 0;
-  const fontRequests: string[] = [];
-  const renderedSVGs: string[] = [];
-  const canvases: { width: number; height: number }[] = [];
-  Object.assign(globalThis, {
     Image: class {
       src = "";
       async decode() {
@@ -204,6 +128,12 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
       }
     },
     fetch: async (url: string) => {
+      if (url.startsWith("/api/images?")) {
+        imageRequests.push(url);
+        return new Response(new Uint8Array([1, 2, 3]), {
+          headers: { "Content-Type": "image/png" },
+        });
+      }
       fontRequests.push(url);
       return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
     },
@@ -237,21 +167,41 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
   });
   try {
     const p = exampleProject();
+    p.assets.photo = "https://images.example.org/square.png";
+    Object.assign(p.slides[1], {
+      layout: "gambar",
+      image: "photo",
+      imageWidth: 512,
+      imageHeight: 512,
+    });
     p.slides[1].style.font = "DM Sans";
     p.slides[2].style.font = "IBM Plex Sans";
     const progress: number[] = [];
     await exportPNG(p, (n) => progress.push(n));
+    assert.equal(imageRequests.length, 1);
+    assert.equal(p.assets.photo, "https://images.example.org/square.png");
+    assert.ok(
+      renderedSVGs.some((svg) => svg.includes("data:image/png;base64,")),
+    );
+    assert.ok(renderedSVGs.every((svg) => !svg.includes("/api/images?")));
     assert.equal(fontRequests.length, 6);
     for (const family of ["manrope", "dm-sans", "ibm-plex-sans"]) {
       for (const weight of [400, 700]) {
-        assert.ok(fontRequests.some((url) => url.endsWith(`${family}-latin-${weight}-normal.woff2`)));
+        assert.ok(
+          fontRequests.some((url) =>
+            url.endsWith(`${family}-latin-${weight}-normal.woff2`),
+          ),
+        );
       }
     }
     for (const svg of renderedSVGs) {
       for (const family of ["Manrope", "DM Sans", "IBM Plex Sans"]) {
         assert.ok(svg.includes(`font-family:'${family}'`));
       }
-      assert.ok(svg.includes("data:font/woff2;base64,") || svg.includes("data:;base64,"));
+      assert.ok(
+        svg.includes("data:font/woff2;base64,") ||
+          svg.includes("data:;base64,"),
+      );
     }
     assert.equal(drawn, 5);
     assert.deepEqual(progress, [1, 2, 3, 4, 5]);
@@ -267,4 +217,31 @@ test("PNG export waits for fonts and images and writes ordered 1080-square files
   } finally {
     Object.assign(globalThis, original);
   }
+});
+
+test("PNG export identifies the slide when a remote image disappears", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({ error: "URL gambar tidak tersedia." }, { status: 400 });
+  try {
+    const p = newProject();
+    p.assets.photo = "https://images.example.org/gone.png";
+    p.slides[2].image = "photo";
+    await assert.rejects(
+      exportPNG(p, () => {}),
+      /Gambar slide 3: URL gambar tidak tersedia/,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+test("square image renderer keeps the full image without crop controls", () => {
+  const p = newProject(),
+    s = p.slides[1];
+  p.assets.photo = "https://images.example.org/photo.png";
+  s.image = "photo";
+  const svg = renderToStaticMarkup(<SlideArt project={p} slide={s} />);
+  assert.match(svg, /viewBox="0 0 414 414"/);
+  assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
+  assert.match(svg, /width="414" height="414"/);
 });

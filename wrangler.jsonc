@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "carousel-generator",
+  "account_id": "b8f317159c1f46327da0722f13b19256",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-11-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "build": {
+    "command": "npm run build",
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "dist/client",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "run_worker_first": ["/*", "!/_next/static/*", "!/*/_next/static/*"],
+  },
+  "images": {
+    "binding": "IMAGES",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "carousel-generator-db",
+      "database_id": "1d86b937-74ee-4b22-bef6-5d22150eb4df",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "routes": [
+    {
+      "pattern": "carousel.hengker.tech",
+      "custom_domain": true,
+    },
+  ],
+  "no_bundle": true,
+  "rules": [
+    {
+      "type": "ESModule",
+      "globs": ["**/*.js", "**/*.mjs"],
+    },
+  ],
+}

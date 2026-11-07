@@ -33,7 +33,8 @@ export type Slide = {
   style: Partial<Style>;
 };
 export type Project = {
-  version: 1;
+  version: 2;
+  revision?: number;
   id: string;
   title: string;
   updated: number;
@@ -69,7 +70,7 @@ export function newSlide(layout: Layout = "gambar"): Slide {
 }
 export function newProject(): Project {
   return {
-    version: 1,
+    version: 2,
     id: uid(),
     title: "Carousel tanpa judul",
     updated: Date.now(),
@@ -126,40 +127,58 @@ export function exampleProject(): Project {
   }));
   return p;
 }
-let dbPromise: Promise<IDBDatabase> | undefined;
-function database() {
-  return (dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const r = indexedDB.open("ruang-slide", 1);
-    r.onupgradeneeded = () =>
-      r.result.createObjectStore("projects", { keyPath: "id" });
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => {
-      dbPromise = undefined;
-      reject(r.error);
-    };
-  }));
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
 }
-async function operation<T>(
-  mode: IDBTransactionMode,
-  run: (store: IDBObjectStore) => IDBRequest,
+export async function api<T>(
+  path: string,
+  options: RequestInit = {},
 ): Promise<T> {
-  const db = await database();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("projects", mode);
-    const request = run(tx.objectStore("projects"));
-    tx.oncomplete = () => resolve(request.result as T);
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options.headers },
   });
+  const value = (await response.json()) as any;
+  if (!response.ok) {
+    if (
+      response.status === 401 &&
+      !path.startsWith("/api/auth/") &&
+      typeof window !== "undefined"
+    )
+      window.location.assign(
+        `/masuk?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
+    throw new ApiError(
+      response.status,
+      value.error || "Permintaan gagal. Coba lagi.",
+    );
+  }
+  return value as T;
 }
-export const saveProject = (p: Project) =>
-  operation<void>("readwrite", (s) => s.put(p));
-export const getProject = (id: string) =>
-  operation<Project | undefined>("readonly", (s) => s.get(id));
-export const listProjects = () =>
-  operation<Project[]>("readonly", (s) => s.getAll());
-export const deleteProject = (id: string) =>
-  operation<void>("readwrite", (s) => s.delete(id));
+export async function saveProject(p: Project): Promise<Project> {
+  const saved = await api<Project>(
+    p.revision ? `/api/projects/${p.id}` : "/api/projects",
+    { method: p.revision ? "PUT" : "POST", body: JSON.stringify(p) },
+  );
+  p.id = saved.id;
+  p.revision = saved.revision;
+  p.updated = saved.updated;
+  return saved;
+}
+export const getProject = (id: string) => api<Project>(`/api/projects/${id}`);
+export const listProjects = () => api<Project[]>("/api/projects");
+export const deleteProject = (id: string, revision: number) =>
+  api<{ ok: boolean }>(`/api/projects/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ revision }),
+  });
+export const imageSource = (url: string) =>
+  url.startsWith("data:") ? url : `/api/images?url=${encodeURIComponent(url)}`;
 export function effectiveStyle(p: Project, s: Slide): Style {
   return { ...p.style, ...s.style };
 }
@@ -183,46 +202,52 @@ export function validateProject(value: unknown): asserts value is Project {
     );
   if (
     !p ||
-    p.version !== 1 ||
+    p.version !== 2 ||
     typeof p.id !== "string" ||
+    p.id.length > 100 ||
     typeof p.title !== "string" ||
+    p.title.length > 200 ||
     typeof p.account !== "string" ||
+    p.account.length > 100 ||
     typeof p.numbers !== "boolean" ||
     !styleValid(p.style) ||
+    typeof p.updated !== "number" ||
+    !Number.isFinite(p.updated) ||
     !Array.isArray(p.slides) ||
     p.slides.length < 5 ||
     p.slides.length > 20 ||
     !p.assets ||
     typeof p.assets !== "object" ||
+    Array.isArray(p.assets) ||
+    Object.keys(p.assets).length > 20 ||
     Object.values(p.assets).some(
-      (a) =>
-        typeof a !== "string" ||
-        !/^data:image\/(png|jpeg|webp);base64,/.test(a),
+      (a) => typeof a !== "string" || !/^https:\/\//.test(a) || a.length > 2048,
     )
   )
-    throw Error("File proyek tidak valid atau versinya belum didukung.");
+    throw Error("Data proyek tidak valid atau versinya belum didukung.");
   if (
-    new Set(p.slides.map((s) => s.id)).size !== p.slides.length ||
+    new Set(p.slides.map((s) => s?.id)).size !== p.slides.length ||
     p.slides.some(
       (s) =>
         !s ||
         typeof s.id !== "string" ||
+        s.id.length > 100 ||
         !Object.hasOwn(layouts, s.layout) ||
         ["title", "body", "secondary"].some(
-          (k) => typeof s[k as keyof Slide] !== "string",
+          (k) =>
+            typeof s[k as keyof Slide] !== "string" ||
+            String(s[k as keyof Slide]).length > 10000,
         ) ||
         !styleValid(s.style, true) ||
         typeof s.hideAccount !== "boolean" ||
         typeof s.hideNumber !== "boolean" ||
         ![s.zoom, s.x, s.y].every(Number.isFinite) ||
-        s.zoom < 1 ||
-        s.zoom > 3 ||
-        s.x < 0 ||
-        s.x > 100 ||
-        s.y < 0 ||
-        s.y > 100 ||
-        (s.image && !p.assets[s.image]),
+        s.zoom !== 1 ||
+        s.x !== 50 ||
+        s.y !== 50 ||
+        (s.image !== undefined &&
+          (typeof s.image !== "string" || !Object.hasOwn(p.assets, s.image))),
     )
   )
-    throw Error("Isi atau pengaturan slide dalam file tidak valid.");
+    throw Error("Isi atau pengaturan slide tidak valid.");
 }

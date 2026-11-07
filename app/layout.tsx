@@ -13,7 +13,7 @@ import "@fontsource/ibm-plex-sans/latin-700.css";
 export const metadata: Metadata = {
   title: "Ruang Slide — Ruang untuk ide yang berarti",
   description:
-    "Studio carousel edukasi. Tulis, susun, dan unduh cerita visualmu. Gratis, tanpa akun.",
+    "Studio carousel edukasi. Tulis, susun, dan unduh cerita visualmu. Simpan proyek di cloud dan hubungkan agent.",
 };
 
 export default function RootLayout({
